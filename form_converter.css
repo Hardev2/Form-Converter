@@ -314,6 +314,127 @@
   .merge-modal-actions .btn {
     min-height: 44px;
   }
+
+  /* File format guide modal */
+  .guide-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .guide-modal-overlay.visible {
+    display: flex;
+  }
+  .guide-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0;
+    max-width: 520px;
+    width: 100%;
+    max-height: calc(100vh - 40px);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+  }
+  .guide-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .guide-modal-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+  .guide-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    margin: -4px -8px;
+    border-radius: var(--radius-sm);
+  }
+  .guide-modal-close:hover {
+    color: var(--text);
+    background: var(--surface-elevated);
+  }
+  .guide-modal-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex: 1 1 auto;
+  }
+  .guide-modal-body .guide-intro {
+    margin: 0 0 16px 0;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+  }
+  .guide-modal-body h4 {
+    margin: 18px 0 8px 0;
+    font-size: 1rem;
+    color: var(--text);
+  }
+  .guide-modal-body h4:first-of-type {
+    margin-top: 0;
+  }
+  .guide-modal-body p {
+    margin: 0 0 8px 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+  .guide-modal-body ul {
+    margin: 0 0 12px 0;
+    padding-left: 1.25rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+  .guide-modal-body li {
+    margin-bottom: 4px;
+  }
+  .guide-modal-body pre {
+    margin: 8px 0 12px 0;
+    padding: 12px 14px;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+  .guide-modal-body code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--surface-elevated);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .guide-modal-actions {
+    padding: 12px 24px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .guide-modal-actions .btn {
+    min-height: 44px;
+  }
+  .btn-guide {
+    color: var(--accent);
+    background: transparent;
+    border: none;
+    font-weight: 500;
+  }
+  .btn-guide:hover {
+    text-decoration: underline;
+  }
+
   .form-reference-card {
     margin-bottom: 32px;
   }
@@ -341,6 +462,8 @@
     cursor: pointer;
     position: relative;
     display: inline-block;
+    flex: 0 0 auto;
+    min-width: 0;
   }
   .upload-file-label .upload-file-input {
     position: absolute;
