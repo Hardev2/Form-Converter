@@ -29,11 +29,11 @@
     font-size: 18px;
     overflow-x: hidden;
   }
-  .converter {
-    width: 100%;
-    max-width: calc(100vw - 600px);
-    margin: 48px 300px;
-  }
+ .converter {
+  width: 100%;
+  max-width: calc(100vw - 300px);
+  margin: auto;
+}
   .header {
     margin-bottom: 36px;
   }
