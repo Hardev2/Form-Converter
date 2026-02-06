@@ -426,6 +426,23 @@
     let mergeState = null;
     let selectedMergeCols = 2;
     
+    /** Extract the inner column/group content from a single block so we can merge without changing field names. */
+    function extractBlockInner(chunk, isV1) {
+      const lines = chunk.trim().split(/\r?\n/);
+      if (isV1) {
+        const colIdx = lines.findIndex(l => /<div class="form_box_col\d+">/i.test(l));
+        if (colIdx === -1) return lines.slice(2, -2).join("\n").trim();
+        const closeIdx = lines.findIndex((l, i) => i > colIdx && /^\s*<\/div>\s*$/.test(l));
+        if (closeIdx !== -1) return lines.slice(colIdx + 1, closeIdx).join("\n").trim();
+        return lines.slice(2, -2).join("\n").trim();
+      }
+      const colIdx = lines.findIndex(l => /<div class="col-md-\d+">/i.test(l));
+      if (colIdx === -1) return chunk.trim().replace(/^\s*<div class="row[^"]*"[^>]*>\s*\n?/i, "").replace(/\n\s*<\/div>\s*$/, "").trim();
+      const closeIdx = lines.findIndex((l, i) => i > colIdx && /^\s*<\/div>\s*$/.test(l));
+      if (closeIdx !== -1) return lines.slice(colIdx, closeIdx + 1).join("\n").trim();
+      return lines.slice(1, -1).join("\n").trim();
+    }
+    
     function parseSelectionToBlocks(text) {
       const chunks = text.split(/\n\s*\n/).filter(c => c.trim());
       const blocks = [];
@@ -439,50 +456,31 @@
             trimmed.indexOf("<div class=\"row g-3 mb-3\">") !== 0 && trimmed.indexOf('<div class="row g-3 mb-3">') !== 0) {
           continue;
         }
-        const labelMatch = chunk.match(/\$input->label\s*\(\s*['"]([^'"]*)['"]/);
-        const fieldsMatch = chunk.match(/\$input->fields\s*\(\s*['"]([^'"]*)['"]/);
-        const phoneMatch = chunk.match(/\$input->phoneInput\s*\(\s*['"]([^'"]*)['"],\s*[^,]+,?\s*['"]([^'"]*)['"]/);
-        const emailMatch = chunk.match(/\$input->email\s*\(\s*['"]([^'"]*)['"]/);
-        let label = (labelMatch && labelMatch[1]) ? labelMatch[1] : "";
-        let fieldName = (fieldsMatch && fieldsMatch[1]) ? fieldsMatch[1] : "";
-        if (!fieldName && phoneMatch) fieldName = phoneMatch[2] || phoneMatch[1];
-        if (!fieldName && emailMatch) fieldName = emailMatch[1];
-        if (!fieldName) fieldName = label.replace(/\s+/g, "_");
-        if (label || fieldName) blocks.push({ label: label || fieldName, fieldName });
+        const inner = extractBlockInner(chunk, trimmed.indexOf("form_box") !== -1);
+        if (inner) blocks.push({ inner });
       }
       return { blocks, isV1 };
     }
     
     function buildMergedHtml(blocks, numCols, isV1) {
       const n = Math.min(numCols, blocks.length);
-      const baseName = (blocks[0] && blocks[0].fieldName) ? blocks[0].fieldName.replace(/_+$/, "") : "Field";
-      const label = (blocks[0] && blocks[0].label) ? blocks[0].label : baseName;
-      const suffixes = ["", "_", "__"];
-      const esc = (s) => (s + "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+      const colClass = isV1 ? ("form_box_col" + (n === 2 ? "2" : "3")) : ("col-md-" + (n === 2 ? "6" : "4"));
       let html = "";
       if (isV1) {
-        const colClass = "form_box_col" + (n === 2 ? "2" : "3");
         html += "<div class=\"form_box\">\n";
-        html += "    <div class=\"" + colClass + "\">\n";
+        html += "   <div class=\"" + colClass + "\">\n";
         for (let i = 0; i < n; i++) {
-          const fn = baseName + suffixes[i];
-          html += "        <div class=\"group\">\n";
-          html += "            <?php\n";
-          html += "                $input->label('" + esc(label) + "', '');\n";
-          html += "                $input->fields('" + esc(fn) + "', 'form_field', '" + esc(fn) + "', 'placeholder=\"Enter " + esc(label.toLowerCase()) + " here\"');\n";
-          html += "            ?>\n";
-          html += "        </div>\n";
+          const inner = blocks[i].inner;
+          html += inner + "\n";
         }
-        html += "    </div>\n";
+        html += "   </div>\n";
         html += "</div>\n";
       } else {
-        const colClass = "col-md-" + (n === 2 ? "6" : "4");
         html += "<div class=\"row g-3 mb-3\">\n";
         for (let i = 0; i < n; i++) {
-          const fn = baseName + suffixes[i];
-          html += "    <div class=\"" + colClass + "\">\n";
-          html += "        <?php $input->fields('" + esc(fn) + "', 'form-control', '" + esc(fn) + "', ''); ?>\n";
-          html += "    </div>\n";
+          let inner = blocks[i].inner;
+          inner = inner.replace(/\bcol-md-\d+\b/, colClass);
+          html += inner + "\n";
         }
         html += "</div>\n";
       }
