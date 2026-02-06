@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Online Form Converter</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -17,8 +18,19 @@
 
 <div class="converter">
   <header class="header">
-    <h1>Form Converter</h1>
-    <p>Generate PHP form markup for text, radio, and checkbox fields.</p>
+    <div class="header-brand">
+      <div class="header-logo" aria-hidden="true">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="40" height="40" rx="10" fill="var(--surface-elevated)"/>
+          <path d="M10 14h20v2H10V14zm0 6h14v2H10v-2zm0 6h18v2H10v-2z" fill="var(--text-muted)"/>
+          <path d="M26 22l6 4-6 4v-3h-4v-2h4v-3z" fill="var(--accent)"/>
+        </svg>
+      </div>
+      <div class="header-titles">
+        <h1>Form Converter</h1>
+        <p>Generate PHP form markup for text, radio, and checkbox fields.</p>
+      </div>
+    </div>
   </header>
 
   <section class="card form-reference-card">
