@@ -33,6 +33,7 @@
         Upload file & convert
         <input type="file" id="formReferenceFile" accept=".pdf,.docx" onchange="handleFormReferenceFile(event)" class="upload-file-input" />
       </label>
+      <button type="button" class="btn btn-ghost btn-guide" onclick="openFileGuideModal()" title="See expected file format">File format guide</button>
       <button type="button" class="btn btn-secondary" onclick="parseFormReferenceFromInput()">Parse reference</button>
       <button type="button" class="btn btn-secondary" onclick="clearFormReference()">Clear & use manual</button>
     </div>
@@ -85,6 +86,60 @@
   </div>
 </div>
 
+<div id="fileGuideModal" class="guide-modal-overlay" aria-hidden="true" onclick="if (event.target === this) closeFileGuideModal()">
+  <div class="guide-modal" onclick="event.stopPropagation()">
+    <div class="guide-modal-header">
+      <h3>File format guide</h3>
+      <button type="button" class="guide-modal-close" onclick="closeFileGuideModal()" aria-label="Close">×</button>
+    </div>
+    <div class="guide-modal-body">
+      <p class="guide-intro">Upload a <strong>PDF</strong> or <strong>DOCX</strong> that describes your form. The converter extracts text and looks for field labels and types in these formats.</p>
+
+      <h4>Accepted files</h4>
+      <ul>
+        <li><strong>.pdf</strong> — text is extracted for parsing</li>
+        <li><strong>.docx</strong> — document body text is extracted</li>
+      </ul>
+
+      <h4>Field format (preferred)</h4>
+      <p>Use a dash before the type in square brackets. Space before the dash is optional.</p>
+      <pre>Full Name - [Text field]
+Email Address - [Email field]
+Phone - [Text field]
+Sport - [Radio Buttons]
+Birth Date - [Date Picker]
+Start Time - [Time Picker]
+Newsletter - [Checkbox]</pre>
+
+      <h4>Radio & checkbox options</h4>
+      <p>List options after the field line. Best: one option per line with a bullet <strong>●</strong> or <strong>•</strong>.</p>
+      <pre>Sport - [Radio Buttons]
+● Soccer
+● Basketball
+● Volleyball
+● Other</pre>
+      <p>Alternatives:</p>
+      <ul>
+        <li><strong>Options:</strong> then one option per line</li>
+        <li><strong>Options: (Option A<br>Option B<br>Other)</strong></li>
+      </ul>
+
+      <h4>Supported field types</h4>
+      <ul>
+        <li><code>[Text field]</code></li>
+        <li><code>[Email field]</code></li>
+        <li><code>[Radio Buttons]</code></li>
+        <li><code>[Checkbox]</code></li>
+        <li><code>[Date Picker]</code></li>
+        <li><code>[Time Picker]</code></li>
+      </ul>
+    </div>
+    <div class="guide-modal-actions">
+      <button type="button" class="btn btn-primary" onclick="closeFileGuideModal()">Got it</button>
+    </div>
+  </div>
+</div>
+
 <div id="mergeModal" class="merge-modal-overlay" aria-hidden="true">
   <div class="merge-modal">
     <h3>Merge fields</h3>
@@ -105,4 +160,3 @@
 
 </body>
 </html>
-
