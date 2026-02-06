@@ -23,7 +23,7 @@
 
   <section class="card form-reference-card">
     <h2 class="card-title">Form reference (optional)</h2>
-    <p class="hint-block">Upload a PDF or DOCX to <strong>detect fields and convert to form markup</strong> (Version 1 is generated automatically). Or paste text and click Parse. <strong>Fields:</strong> <strong>Full Name - [Text field]</strong>, <strong>Email - [Email field]</strong>, <strong>Label - [Radio Buttons]</strong> / <strong>[Checkbox]</strong> / <strong>[Date Picker]</strong> / <strong>[Time Picker]</strong>. <strong>Radio/checkbox options</strong> (preferred): one per line with bullet <strong>●</strong>. Alternative: <strong>Options:</strong> then one option per line, or <strong>Options: (Option A&#10;Option B&#10;Other)</strong>.</p>
+    <p class="hint-block">Upload a PDF or DOCX to <strong>detect fields and convert to form markup</strong> (Version 1 is generated automatically). Or paste text and click Parse. <strong>Fields:</strong> <strong>Full Name - [Text field]</strong>, <strong>Email - [Email field]</strong>, <strong>Label - [Radio Buttons]</strong> / <strong>[Checkbox]</strong> / <strong>[Date Picker]</strong> / <strong>[Time Picker]</strong>, <strong>[Amount]</strong>, <strong>[Age]</strong>, <strong>[Number only]</strong>, <strong>[Upload]</strong>. <strong>Radio/checkbox options</strong> (preferred): one per line with bullet <strong>●</strong>. Alternative: <strong>Options:</strong> then one option per line, or <strong>Options: (Option A&#10;Option B&#10;Other)</strong>.</p>
     <div class="form-group">
       <label>Paste text or upload file</label>
       <textarea id="formReferenceText" rows="4" placeholder="Full Name - [Text field]&#10;Email Address - [Email field]&#10;Sport - [Radio Buttons]"></textarea>
@@ -33,9 +33,9 @@
         Upload file & convert
         <input type="file" id="formReferenceFile" accept=".pdf,.docx" onchange="handleFormReferenceFile(event)" class="upload-file-input" />
       </label>
-      <button type="button" class="btn btn-ghost btn-guide" onclick="openFileGuideModal()" title="See expected file format">File format guide</button>
       <button type="button" class="btn btn-secondary" onclick="parseFormReferenceFromInput()">Parse reference</button>
       <button type="button" class="btn btn-secondary" onclick="clearFormReference()">Clear & use manual</button>
+      <button type="button" class="btn btn-ghost btn-guide" onclick="openFileGuideModal()" title="See expected file format">File format guide</button>
     </div>
     <div id="parsedPreview" class="parsed-preview empty"></div>
   </section>
@@ -50,6 +50,10 @@
           <option value="text">Text</option>
           <option value="radio">Radio</option>
           <option value="checkbox">Checkbox</option>
+          <option value="amount">Amount</option>
+          <option value="age">Age</option>
+          <option value="numberOnly">Number only</option>
+          <option value="upload">Upload</option>
         </select>
       </div>
 
@@ -102,14 +106,18 @@
       </ul>
 
       <h4>Field format (preferred)</h4>
-      <p>Use a dash before the type in square brackets. Space before the dash is optional.</p>
+      <p>Use a dash before the type in square brackets. Space before the dash is optional. If you use <strong>[Text field]</strong>, the converter may infer <strong>Amount</strong>, <strong>Age</strong>, <strong>Number only</strong>, or <strong>Upload</strong> from the label (e.g. <code>Age - [Text field]</code> → age, <code>Monthly Salary - [Text field]</code> → amount, <code>Quantity - [Text field]</code> → number only, <code>Attach Resume - [Text field]</code> → upload).</p>
       <pre>Full Name - [Text field]
 Email Address - [Email field]
 Phone - [Text field]
 Sport - [Radio Buttons]
 Birth Date - [Date Picker]
 Start Time - [Time Picker]
-Newsletter - [Checkbox]</pre>
+Newsletter - [Checkbox]
+Monthly Salary - [Amount]
+Age - [Age]
+Quantity - [Number only]
+Attach Resume - [Upload]</pre>
 
       <h4>Radio & checkbox options</h4>
       <p>List options after the field line. Best: one option per line with a bullet <strong>●</strong> or <strong>•</strong>.</p>
@@ -132,6 +140,10 @@ Newsletter - [Checkbox]</pre>
         <li><code>[Checkbox]</code></li>
         <li><code>[Date Picker]</code></li>
         <li><code>[Time Picker]</code></li>
+        <li><code>[Amount]</code> — currency/numeric amount</li>
+        <li><code>[Age]</code> — age input</li>
+        <li><code>[Number only]</code> — numbers only</li>
+        <li><code>[Upload]</code> — file upload (e.g. .doc, .docx, .pdf | Max: 10MB)</li>
       </ul>
     </div>
     <div class="guide-modal-actions">
