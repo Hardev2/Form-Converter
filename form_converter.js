@@ -165,9 +165,10 @@
       return result;
     }
     
-    /** Extract options from text after [Radio Buttons] or [Checkbox]. Supports:
-     * 1) Bullet format: "● Option A\n● Option B" or "● Soccer  ● Basketball  ● Volleyball" (one line). If "● Option  Next Label" appears, only "Option" is taken.
-     * 2) Options: format: "Options:\nOption A\nOption B" or "Options: (Option A\nOption B\nOther)"
+    /** Extract options from text after [Radio Buttons] or [Checkbox].
+     * Only lines with bullets (● or •) are treated as options, unless the text explicitly starts with "Options:".
+     * 1) Bullet format: "● Option A\n● Option B" — only bullet lines are options; plain lines are ignored.
+     * 2) Explicit "Options:" format: "Options:\nOption A\nOption B" or "Options: (Option A\nOption B\nOther)"
      */
     function extractOptionsFromAfterText(afterText) {
       const descStartRe = /^(Select|Choose|Enter|Optional|If applicable|Used for|Provide|This person)/i;
@@ -179,7 +180,6 @@
         return t;
       }
       if (/[●•]/.test(afterText)) {
-        const fullAfterText = afterText;
         const lines = afterText.split(/\r?\n/);
         let lastBulletIdx = -1;
         for (let i = 0; i < lines.length; i++) {
@@ -206,23 +206,13 @@
           }
         });
         if (opts.length > 0) return opts;
-        if (opts.length === 1 && fullAfterText.includes("\n")) {
-          const nextFieldRe = /\s*-\s*\[(?:Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Amount|Age|Number\s*only|Upload)\]/i;
-          const byNewline = fullAfterText.split(/\r?\n/).map(trim).filter(Boolean);
-          const lineOpts = [];
-          for (const line of byNewline) {
-            if (nextFieldRe.test(line)) break;
-            const cleaned = line.replace(/^\s*[●•]\s*/, "");
-            if (cleaned.length > 0 && cleaned.length < 120 && notInstruction(cleaned)) lineOpts.push(cleaned);
-          }
-          if (lineOpts.length > 1) return lineOpts;
-        }
       }
-      const normalized = afterText.replace(/^Options:\s*/i, "").replace(/^Options:\s*\(\s*/i, "").replace(/\s*\)\s*$/, "");
-      const byLine = normalized.split(/\r?\n/).map(trim).filter(line => line && line !== "(" && line !== ")");
-      const opts = byLine.filter(notInstruction);
-      if (opts.length > 0) return opts;
-      if (afterText.length > 0 && afterText.length < 600) return [afterText.trim()];
+      if (/^Options:\s/i.test(afterText)) {
+        const normalized = afterText.replace(/^Options:\s*/i, "").replace(/^Options:\s*\(\s*/i, "").replace(/\s*\)\s*$/, "");
+        const byLine = normalized.split(/\r?\n/).map(trim).filter(line => line && line !== "(" && line !== ")");
+        const opts = byLine.filter(notInstruction);
+        if (opts.length > 0) return opts;
+      }
       return null;
     }
     
