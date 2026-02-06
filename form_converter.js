@@ -166,14 +166,15 @@
     }
     
     /** Extract options from text after [Radio Buttons] or [Checkbox].
-     * Only lines with bullets (● or •) are treated as options, unless the text explicitly starts with "Options:".
-     * 1) Bullet format: "● Option A\n● Option B" — only bullet lines are options; plain lines are ignored.
-     * 2) Explicit "Options:" format: "Options:\nOption A\nOption B" or "Options: (Option A\nOption B\nOther)"
+     * 1) Bullet format: "● Option A\n● Option B" — only bullet lines are options.
+     * 2) Explicit "Options:" format: "Options:\nOption A\nOption B"
+     * 3) Plain lines: "Soccer\nBasketball\nVolleyball" — each line is an option; stop when we hit a line that looks like the next field (e.g. "Label - [Radio Buttons]").
      */
     function extractOptionsFromAfterText(afterText) {
       const descStartRe = /^(Select|Choose|Enter|Optional|If applicable|Used for|Provide|This person)/i;
       const trim = (s) => s.trim();
       const notInstruction = (opt) => opt.length > 0 && !descStartRe.test(opt) && !(opt.length > 55 && /\.\s*$/.test(opt));
+      const nextFieldRe = /\s*-\s*\[(?:Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Amount|Age|Number\s*only|Upload)\]/i;
       function takeFirstSegment(text) {
         const t = trim(text);
         if (/\s{2,}/.test(t)) return t.split(/\s{2,}/)[0].trim();
@@ -213,6 +214,13 @@
         const opts = byLine.filter(notInstruction);
         if (opts.length > 0) return opts;
       }
+      const byLine = afterText.split(/\r?\n/).map(trim).filter(Boolean);
+      const opts = [];
+      for (const line of byLine) {
+        if (nextFieldRe.test(line)) break;
+        if (line.length > 0 && line.length < 120 && notInstruction(line)) opts.push(line);
+      }
+      if (opts.length > 0) return opts;
       return null;
     }
     
