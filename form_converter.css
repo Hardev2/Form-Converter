@@ -1,0 +1,371 @@
+:root {
+    --bg: #0f1419;
+    --surface: #1a2332;
+    --surface-elevated: #243044;
+    --border: #2d3a4d;
+    --text: #e6edf3;
+    --text-muted: #8b9cb3;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --success: #22c55e;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 4px 24px rgba(0,0,0,.25);
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    overflow-x: hidden;
+  }
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+    font-size: 18px;
+    overflow-x: hidden;
+  }
+  .converter {
+    width: 100%;
+    max-width: calc(100vw - 600px);
+    margin: 48px 300px;
+  }
+  .header {
+    margin-bottom: 36px;
+  }
+  .header h1 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.02em;
+  }
+  .header p {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    margin: 0;
+    max-width: 520px;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  @media (max-width: 1400px) {
+    .converter {
+      margin-left: 120px;
+      margin-right: 120px;
+      max-width: calc(100vw - 240px);
+    }
+  }
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+    .converter {
+      margin: 24px 20px 40px;
+      max-width: calc(100vw - 40px);
+    }
+    body {
+      font-size: 17px;
+    }
+    .header h1 {
+      font-size: 2rem;
+    }
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    box-shadow: var(--shadow);
+  }
+  .card-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: 0 0 20px 0;
+  }
+  .form-group {
+    margin-bottom: 24px;
+  }
+  .form-group:last-child {
+    margin-bottom: 0;
+  }
+  .form-group label {
+    display: block;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .form-group label .hint {
+    font-weight: 400;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+  }
+  textarea,
+  input,
+  select {
+    width: 100%;
+    padding: 14px 18px;
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: border-color .15s, box-shadow .15s;
+    min-height: 48px;
+  }
+  textarea {
+    resize: vertical;
+    min-height: 140px;
+    line-height: 1.5;
+  }
+  #fieldNames {
+    min-height: 140px;
+  }
+  #radioOptions {
+    min-height: 100px;
+  }
+  #output {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    line-height: 1.6;
+    min-height: 400px;
+    padding: 18px 20px;
+  }
+  select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 12 12'%3E%3Cpath fill='%238b9cb3' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 18px center;
+    padding-right: 48px;
+  }
+  textarea:focus,
+  input:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, .2);
+  }
+  textarea::placeholder,
+  input::placeholder {
+    color: var(--text-muted);
+    opacity: .85;
+  }
+  #radioOptionsBox {
+    display: none;
+  }
+  #radioOptionsBox.visible {
+    display: block;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .btn {
+    padding: 14px 26px;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: inherit;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background .15s, transform .05s;
+    min-height: 52px;
+  }
+  .btn:active {
+    transform: scale(0.98);
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
+  .btn-secondary {
+    background: var(--surface-elevated);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    background: var(--border);
+  }
+  .output-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    height: 100%;
+  }
+  .output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .output-header .hint {
+    font-size: 1rem !important;
+  }
+  .btn-copy {
+    padding: 12px 22px;
+    font-size: 1rem;
+    font-weight: 600;
+    min-height: 48px;
+    background: var(--surface-elevated);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s, border-color .15s;
+  }
+  .btn-copy:hover {
+    background: var(--border);
+  }
+  .btn-copy.copied {
+    border-color: var(--success);
+    color: var(--success);
+  }
+  .output-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .output-actions .btn-copy {
+    min-height: 44px;
+  }
+  .merge-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .merge-modal-overlay.visible {
+    display: flex;
+  }
+  .merge-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    max-width: 380px;
+    width: 100%;
+    box-shadow: var(--shadow);
+  }
+  .merge-modal h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.15rem;
+  }
+  .merge-modal p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin: 0 0 20px 0;
+  }
+  .merge-modal-choices {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .merge-modal-choices button {
+    flex: 1;
+    padding: 12px 16px;
+    font-size: 1rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--surface-elevated);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .merge-modal-choices button:hover {
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, .1);
+  }
+  .merge-modal-choices button.selected {
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, .15);
+  }
+  .merge-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .merge-modal-actions .btn {
+    min-height: 44px;
+  }
+  .form-reference-card {
+    margin-bottom: 32px;
+  }
+  .form-reference-card .card-title {
+    margin-bottom: 8px;
+  }
+  .form-reference-card .hint-block {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 14px;
+  }
+  .form-reference-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-top: 14px;
+  }
+  .form-reference-actions input[type="file"] {
+    width: auto;
+    min-height: auto;
+    padding: 8px 12px;
+  }
+  .upload-file-label {
+    cursor: pointer;
+    position: relative;
+    display: inline-block;
+  }
+  .upload-file-label .upload-file-input {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+  #formReferenceText {
+    min-height: 100px;
+    font-size: 0.95rem;
+  }
+  .parsed-preview {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: var(--surface-elevated);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+  .parsed-preview strong {
+    color: var(--text);
+  }
+  .parsed-preview.empty {
+    display: none;
+  }

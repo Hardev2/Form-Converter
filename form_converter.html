@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Online Form Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if (typeof pdfjsLib !== 'undefined') { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<link rel="stylesheet" href="form_converter.css">
+</head>
+
+<body>
+
+<div class="converter">
+  <header class="header">
+    <h1>Form Converter</h1>
+    <p>Generate PHP form markup for text, radio, and checkbox fields.</p>
+  </header>
+
+  <section class="card form-reference-card">
+    <h2 class="card-title">Form reference (optional)</h2>
+    <p class="hint-block">Upload a PDF or DOCX to <strong>detect fields and convert to form markup</strong> (Version 1 is generated automatically). Or paste text and click Parse. <strong>Fields:</strong> <strong>Full Name - [Text field]</strong>, <strong>Email - [Email field]</strong>, <strong>Label - [Radio Buttons]</strong> / <strong>[Checkbox]</strong> / <strong>[Date Picker]</strong> / <strong>[Time Picker]</strong>. <strong>Radio/checkbox options</strong> (preferred): one per line with bullet <strong>●</strong>. Alternative: <strong>Options:</strong> then one option per line, or <strong>Options: (Option A&#10;Option B&#10;Other)</strong>.</p>
+    <div class="form-group">
+      <label>Paste text or upload file</label>
+      <textarea id="formReferenceText" rows="4" placeholder="Full Name - [Text field]&#10;Email Address - [Email field]&#10;Sport - [Radio Buttons]"></textarea>
+    </div>
+    <div class="form-reference-actions">
+      <label class="btn btn-primary upload-file-label">
+        Upload file & convert
+        <input type="file" id="formReferenceFile" accept=".pdf,.docx" onchange="handleFormReferenceFile(event)" class="upload-file-input" />
+      </label>
+      <button type="button" class="btn btn-secondary" onclick="parseFormReferenceFromInput()">Parse reference</button>
+      <button type="button" class="btn btn-secondary" onclick="clearFormReference()">Clear & use manual</button>
+    </div>
+    <div id="parsedPreview" class="parsed-preview empty"></div>
+  </section>
+
+  <div class="layout">
+    <section class="card">
+      <h2 class="card-title">Configuration</h2>
+
+      <div class="form-group">
+        <label>Field type</label>
+        <select id="fieldType" onchange="toggleRadioOptions()">
+          <option value="text">Text</option>
+          <option value="radio">Radio</option>
+          <option value="checkbox">Checkbox</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Field name(s) <span class="hint">— one per line</span></label>
+        <textarea id="fieldNames" rows="4" placeholder="Form Testing&#10;Test"></textarea>
+      </div>
+
+      <div id="radioOptionsBox" class="form-group">
+        <label>Options <span class="hint">— one per line (newline = new option; spaces on a line = one option)</span></label>
+        <textarea id="radioOptions" rows="4" placeholder="Option 1&#10;Option 2&#10;Option 3"></textarea>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary" onclick="generate('v1')">Generate Version 1</button>
+        <button type="button" class="btn btn-secondary" onclick="generate('v2')">Generate Modern</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Output</h2>
+      <div class="output-wrap">
+        <div class="output-header">
+          <span class="hint">PHP markup</span>
+          <div class="output-actions">
+            <button type="button" id="mergeBtn" class="btn-copy" onclick="openMergeModal()" title="Merge selected fields">Merge</button>
+            <button type="button" id="undoMergeBtn" class="btn-copy" onclick="undoMerge()" title="Undo last merge">Undo Merge</button>
+            <button type="button" id="copyBtn" class="btn-copy" onclick="copyOutput()" title="Copy to clipboard">Copy</button>
+          </div>
+        </div>
+        <textarea id="output" rows="22" placeholder="Click “Generate Version 1” or “Generate Modern” to see the PHP markup here."></textarea>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="mergeModal" class="merge-modal-overlay" aria-hidden="true">
+  <div class="merge-modal">
+    <h3>Merge fields</h3>
+    <p>Selected <strong id="mergeBlockCount">0</strong> field(s). Merge into:</p>
+    <div class="merge-modal-choices">
+      <button type="button" data-cols="2">2 columns</button>
+      <button type="button" data-cols="3">3 columns</button>
+    </div>
+    <div class="merge-modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeMergeModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" id="mergeConfirmBtn" onclick="applyMerge()">Merge</button>
+    </div>
+  </div>
+</div>
+
+<script src="form_converter.js"></script>
+    
+
+</body>
+</html>
