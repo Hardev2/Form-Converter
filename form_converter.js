@@ -473,7 +473,26 @@
       document.getElementById("mergeModal").setAttribute("aria-hidden", "true");
       mergeState = null;
     }
-    
+
+    let fileGuideEscapeHandler = null;
+    function openFileGuideModal() {
+      const el = document.getElementById("fileGuideModal");
+      el.classList.add("visible");
+      el.setAttribute("aria-hidden", "false");
+      fileGuideEscapeHandler = function(e) {
+        if (e.key === "Escape") closeFileGuideModal();
+      };
+      document.addEventListener("keydown", fileGuideEscapeHandler);
+    }
+    function closeFileGuideModal() {
+      if (fileGuideEscapeHandler) {
+        document.removeEventListener("keydown", fileGuideEscapeHandler);
+        fileGuideEscapeHandler = null;
+      }
+      document.getElementById("fileGuideModal").classList.remove("visible");
+      document.getElementById("fileGuideModal").setAttribute("aria-hidden", "true");
+    }
+
     function applyMerge() {
       if (!mergeState) return closeMergeModal();
       const output = document.getElementById("output");
