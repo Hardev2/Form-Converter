@@ -32,7 +32,41 @@
       const lower = (rawName || "").trim().toLowerCase();
       return /\bdate\b/.test(lower);
     }
-    
+
+    /** True if the label suggests amount/currency (e.g. salary, price, cost). */
+    function isAmountField(rawName) {
+      const lower = (rawName || "").trim().toLowerCase();
+      return /\b(amount|salary|salaries|price|cost|fee|fees|payment|income|revenue|budget|total|sum|wage|compensation)\b/.test(lower);
+    }
+
+    /** True if the label suggests age. */
+    function isAgeField(rawName) {
+      const lower = (rawName || "").trim().toLowerCase();
+      return /\bage\b/.test(lower);
+    }
+
+    /** True if the label suggests number-only (e.g. quantity, count). */
+    function isNumberOnlyField(rawName) {
+      const lower = (rawName || "").trim().toLowerCase();
+      return /\b(number|quantity|quantities|count|qty|numeric|no\.?\s*of|number\s*of)\b/.test(lower);
+    }
+
+    /** True if the label suggests file upload (e.g. attach, upload, resume, document). */
+    function isUploadField(rawName) {
+      const lower = (rawName || "").trim().toLowerCase();
+      return /\b(upload|attach|attachment|file|document|resume|cv|curriculum|portfolio|proof|supporting\s*document)\b/.test(lower);
+    }
+
+    /** When type is "text", resolve to amount/age/numberOnly/upload if the label suggests it. */
+    function resolveTextSubtype(rawName, type) {
+      if (type !== "text") return type;
+      if (isAmountField(rawName)) return "amount";
+      if (isAgeField(rawName)) return "age";
+      if (isNumberOnlyField(rawName)) return "numberOnly";
+      if (isUploadField(rawName)) return "upload";
+      return type;
+    }
+
     function getFieldLines() {
       return document
         .getElementById("fieldNames")
@@ -54,7 +88,7 @@
       const str = (text || "").trim();
       const dashBracketResult = parseFormReferenceDashBracket(str);
       if (dashBracketResult.length > 0) return dashBracketResult;
-      const typeRe = /\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox)\]/gi;
+      const typeRe = /\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Amount|Age|Number\s*only|Upload)\]/gi;
       const runOnMatches = [];
       let m;
       while ((m = typeRe.exec(str)) !== null) runOnMatches.push({ index: m.index, type: m[1], full: m[0] });
@@ -63,7 +97,7 @@
       }
       const rawLines = str.split(/\r?\n/).map(l => l.trim());
       const result = [];
-      const typeLineRe = /^\s*\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox)\]\s*$/i;
+      const typeLineRe = /^\s*\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Amount|Age|Number\s*only|Upload)\]\s*$/i;
       let i = 0;
       while (i < rawLines.length) {
         const line = rawLines[i];
@@ -78,6 +112,11 @@
           else if (/checkbox/.test(t)) type = "checkbox";
           else if (/date/.test(t)) type = "date";
           else if (/time/.test(t)) type = "time";
+          else if (/^amount$/.test(t)) type = "amount";
+          else if (/^age$/.test(t)) type = "age";
+          else if (/number\s*only/.test(t)) type = "numberOnly";
+          else if (/^upload$/.test(t)) type = "upload";
+          type = resolveTextSubtype(label, type);
           let options = null;
           if (type === "radio" || type === "checkbox") {
             options = [];
@@ -114,6 +153,11 @@
             if (colonOpts && colonOpts[1]) options = colonOpts[1].split(/[,;]/).map(s => s.trim()).filter(Boolean);
           } else if (/date/.test(rest)) type = "date";
           else if (/time/.test(rest)) type = "time";
+          else if (/^amount$/.test(rest)) type = "amount";
+          else if (/^age$/.test(rest)) type = "age";
+          else if (/number\s*only/.test(rest)) type = "numberOnly";
+          else if (/^upload$/.test(rest)) type = "upload";
+          type = resolveTextSubtype(rawName, type);
           if (rawName) result.push({ rawName, type, options });
         }
         i++;
@@ -163,7 +207,7 @@
         });
         if (opts.length > 0) return opts;
         if (opts.length === 1 && fullAfterText.includes("\n")) {
-          const nextFieldRe = /\s*-\s*\[(?:Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox)\]/i;
+          const nextFieldRe = /\s*-\s*\[(?:Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Amount|Age|Number\s*only|Upload)\]/i;
           const byNewline = fullAfterText.split(/\r?\n/).map(trim).filter(Boolean);
           const lineOpts = [];
           for (const line of byNewline) {
@@ -185,7 +229,7 @@
     /** Preferred format: "Full Name - [Text field]" or "Primary Contact Name- [Text field]" (space before dash optional). */
     function parseFormReferenceDashBracket(str) {
       const result = [];
-      const re = /\s*-\s*\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox)\]/gi;
+      const re = /\s*-\s*\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Amount|Age|Number\s*only|Upload)\]/gi;
       const matches = [];
       let match;
       while ((match = re.exec(str)) !== null) {
@@ -205,6 +249,10 @@
         else if (/checkbox/.test(t)) type = "checkbox";
         else if (/date/.test(t)) type = "date";
         else if (/time/.test(t)) type = "time";
+        else if (/^amount$/.test(t)) type = "amount";
+        else if (/^age$/.test(t)) type = "age";
+        else if (/number\s*only/.test(t)) type = "numberOnly";
+        else if (/^upload$/.test(t)) type = "upload";
         let options = null;
         if (type === "radio" || type === "checkbox") {
           const afterStart = matches[k].index + matches[k].full.length;
@@ -212,6 +260,7 @@
           const afterText = str.slice(afterStart, afterEnd).trim();
           options = extractOptionsFromAfterText(afterText);
         }
+        type = resolveTextSubtype(rawName, type);
         result.push({ rawName, type, options });
       }
       return result;
@@ -232,6 +281,10 @@
         else if (/checkbox/.test(t)) type = "checkbox";
         else if (/date/.test(t)) type = "date";
         else if (/time/.test(t)) type = "time";
+        else if (/^amount$/.test(t)) type = "amount";
+        else if (/^age$/.test(t)) type = "age";
+        else if (/number\s*only/.test(t)) type = "numberOnly";
+        else if (/^upload$/.test(t)) type = "upload";
         let options = null;
         if (type === "radio" || type === "checkbox") {
           const afterBracketStart = index + full.length;
@@ -239,6 +292,7 @@
           const afterText = str.slice(afterBracketStart, afterEnd).trim();
           options = extractOptionsFromAfterText(afterText);
         }
+        type = resolveTextSubtype(rawName, type);
         result.push({ rawName, type, options });
       }
       return result;
@@ -766,6 +820,94 @@
 </div>
 
 `;
+      } else if (type === "amount") {
+        out = version === "v1"
+          ? `<div class="form_box">
+   <div class="form_box_col1">
+      <div class="group">
+         <?php
+            $input->label('${r}', '');
+            $input->amount('${f}', '${f}', '');
+         ?>
+      </div>
+   </div>
+</div>
+
+`
+          : `<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <?php $input->amount('${r}', '${f}', ''); ?>
+  </div>
+</div>
+
+`;
+      } else if (type === "age") {
+        out = version === "v1"
+          ? `<div class="form_box">
+   <div class="form_box_col1">
+      <div class="group">
+         <?php
+            $input->label('${r}', '');
+            $input->fields('${r}', 'ageOnly', '${f}', '');
+         ?>
+      </div>
+   </div>
+</div>
+
+`
+          : `<div class="row g-3 mb-3">
+  <div class="col-md-2">
+    <?php $input->fields('${r}', 'ageOnly', '${f}', ''); ?>
+  </div>
+</div>
+
+`;
+      } else if (type === "numberOnly") {
+        out = version === "v1"
+          ? `<div class="form_box">
+   <div class="form_box_col1">
+      <div class="group">
+         <?php
+            $input->label('${r}', '');
+            $input->fields('${r}', 'numberOnly', '${f}', '');
+         ?>
+      </div>
+   </div>
+</div>
+
+`
+          : `<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <?php $input->fields('${r}', 'numberOnly', '${f}', ''); ?>
+  </div>
+</div>
+
+`;
+      } else if (type === "upload") {
+        const uploadLabelWithHint = escPhp((rawName || "") + ' <span style="font-style: italic; font-size: 13px; text-transform: lowercase; color:#b1b1b1;">(accepted file formats: .doc, .docx, .pdf | Max: 10MB)</span>');
+        out = version === "v1"
+          ? `<div class="form_box">
+   <div class="form_box_col1">
+      <div class="group">
+         <?php
+            $input->label('${r}', '');
+         ?>
+         <input type="file" name="attachment[]" id="${f}" class="form_field" multiple>
+      </div>
+   </div>
+</div>
+
+`
+          : `<div class="row g-3 mb-3">
+  <div class="col-md-12">
+    <?php
+      $input->label('${uploadLabelWithHint}', '');
+      $input->files('', '${f}', '', '', 'doc,docx,pdf,zip', '10MB');
+    ?>
+  </div>
+</div>
+
+`;
       }
       return out;
     }
@@ -981,6 +1123,102 @@
             $input->chkboxVal('${fieldName}', array(${options}), '${fieldName}', '', '3');
         ?>
     </div>
+</div>
+
+`;
+        }
+
+        if (type === "amount") {
+          output += version === "v1"
+            ? `<div class="form_box">
+   <div class="form_box_col1">
+      <div class="group">
+         <?php
+            $input->label('${rawName}', '');
+            $input->amount('${fieldName}', '${fieldName}', '');
+         ?>
+      </div>
+   </div>
+</div>
+
+`
+            : `<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <?php $input->amount('${rawName}', '${fieldName}', ''); ?>
+  </div>
+</div>
+
+`;
+        }
+
+        if (type === "age") {
+          output += version === "v1"
+            ? `<div class="form_box">
+   <div class="form_box_col1">
+      <div class="group">
+         <?php
+            $input->label('${rawName}', '');
+            $input->fields('${rawName}', 'ageOnly', '${fieldName}', '');
+         ?>
+      </div>
+   </div>
+</div>
+
+`
+            : `<div class="row g-3 mb-3">
+  <div class="col-md-2">
+    <?php $input->fields('${rawName}', 'ageOnly', '${fieldName}', ''); ?>
+  </div>
+</div>
+
+`;
+        }
+
+        if (type === "numberOnly") {
+          output += version === "v1"
+            ? `<div class="form_box">
+   <div class="form_box_col1">
+      <div class="group">
+         <?php
+            $input->label('${rawName}', '');
+            $input->fields('${rawName}', 'numberOnly', '${fieldName}', '');
+         ?>
+      </div>
+   </div>
+</div>
+
+`
+            : `<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <?php $input->fields('${rawName}', 'numberOnly', '${fieldName}', ''); ?>
+  </div>
+</div>
+
+`;
+        }
+
+        if (type === "upload") {
+          const uploadLabelWithHint = escPhp(rawName + ' <span style="font-style: italic; font-size: 13px; text-transform: lowercase; color:#b1b1b1;">(accepted file formats: .doc, .docx, .pdf | Max: 10MB)</span>');
+          output += version === "v1"
+            ? `<div class="form_box">
+   <div class="form_box_col1">
+      <div class="group">
+         <?php
+            $input->label('${rawName}', '');
+         ?>
+         <input type="file" name="attachment[]" id="${fieldName}" class="form_field" multiple>
+      </div>
+   </div>
+</div>
+
+`
+            : `<div class="row g-3 mb-3">
+  <div class="col-md-12">
+    <?php
+      $input->label('${uploadLabelWithHint}', '');
+      $input->files('', '${fieldName}', '', '', 'doc,docx,pdf,zip', '10MB');
+    ?>
+  </div>
 </div>
 
 `;
