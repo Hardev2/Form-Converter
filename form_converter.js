@@ -452,6 +452,13 @@
       document.body.removeChild(ta);
     }
     
+    function clearOutput() {
+      const output = document.getElementById("output");
+      output.value = "";
+      outputHistory = [];
+      output.focus();
+    }
+    
     let outputHistory = [];
     let mergeState = null;
     let selectedMergeCols = 2;
