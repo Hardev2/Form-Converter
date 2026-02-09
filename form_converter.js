@@ -57,11 +57,12 @@
       return /\b(upload|attach|attachment|file|document|resume|cv|curriculum|portfolio|proof|supporting\s*document)\b/.test(lower);
     }
 
-    /** When type is "text", resolve to amount/age/numberOnly/upload if the label suggests it. */
+    /** When type is "text", resolve to amount/age/numberOnly/upload if the label suggests it. Phone/cell stay as text so they render as phoneInput. */
     function resolveTextSubtype(rawName, type) {
       if (type !== "text") return type;
       if (isAmountField(rawName)) return "amount";
       if (isAgeField(rawName)) return "age";
+      if (isPhoneContactField(rawName)) return type;
       if (isNumberOnlyField(rawName)) return "numberOnly";
       if (isUploadField(rawName)) return "upload";
       return type;
@@ -74,6 +75,35 @@
         .split("\n")
         .map(line => line.trim())
         .filter(Boolean);
+    }
+
+    /** Return array of { rawName, fieldName } with unique field names: first occurrence no suffix, then _, __, etc. */
+    function makeUniqueFieldNames(rawNames) {
+      const baseCount = {};
+      return rawNames.map((raw) => {
+        const base = normalizeFieldName(raw);
+        const key = base.replace(/_+$/, "");
+        const n = baseCount[key] = (baseCount[key] ?? 0);
+        baseCount[key]++;
+        const fieldName = n > 0 ? key + "_".repeat(n) : base;
+        return { rawName: raw, fieldName };
+      });
+    }
+
+    /** If a radio/checkbox has "Other" or "Please Specify" in options, insert an Other text field after it. */
+    function expandParsedFieldsForOther(fields) {
+      const result = [];
+      for (const f of fields) {
+        result.push(f);
+        if ((f.type === "radio" || f.type === "checkbox") && f.options && f.options.length) {
+          const hasOther = f.options.some((opt) => {
+            const lower = (opt + "").trim().toLowerCase();
+            return lower === "other" || lower === "please specify";
+          });
+          if (hasOther) result.push({ rawName: "Other", type: "text", options: null, required: true });
+        }
+      }
+      return result;
     }
     
     let parsedFields = [];
@@ -549,12 +579,14 @@
       const cols = selectedMergeCols;
       const merged = buildMergedHtml(mergeState.blocks, cols, mergeState.isV1);
       outputHistory.push(output.value);
+      const scrollTop = output.scrollTop;
       const before = output.value.slice(0, mergeState.selectionStart);
       const after = output.value.slice(mergeState.selectionEnd);
       output.value = before + merged + after;
       closeMergeModal();
       output.focus();
       output.setSelectionRange(mergeState.selectionStart, mergeState.selectionStart + merged.length);
+      output.scrollTop = scrollTop;
     }
     
     function undoMerge() {
@@ -565,6 +597,50 @@
       const output = document.getElementById("output");
       output.value = outputHistory.pop();
       output.focus();
+    }
+
+    /** Mark selected field block(s) as required. V1: label second param becomes '*'. Modern: last empty string param in input calls becomes 'required'. */
+    function markSelectionRequired() {
+      const output = document.getElementById("output");
+      const start = output.selectionStart;
+      const end = output.selectionEnd;
+      const text = output.value;
+      const selectedText = (start < end) ? text.slice(start, end) : text;
+      const chunks = selectedText.split(/\n\s*\n/).filter(c => c.trim());
+      let anyFieldBlock = false;
+      const blocks = [];
+      for (const chunk of chunks) {
+        const trimmed = chunk.trim();
+        const isV1 = trimmed.indexOf("<div class=\"form_box\">") === 0 || trimmed.indexOf('<div class="form_box">') === 0;
+        const isModern = trimmed.indexOf("<div class=\"row g-3 mb-3\">") === 0 || trimmed.indexOf('<div class="row g-3 mb-3">') === 0;
+        if (!isV1 && !isModern) {
+          blocks.push({ transformed: chunk });
+          continue;
+        }
+        anyFieldBlock = true;
+        let transformed = chunk;
+        if (isV1) {
+          transformed = transformed.replace(/\$input->label\s*\(\s*([^)]+),\s*''\s*\)/g, "$input->label($1, '*')");
+        } else {
+          transformed = transformed.split("\n").map((line) => {
+            if (line.indexOf("$input->") === -1 || line.indexOf("->label(") !== -1) return line;
+            return line.replace(/,(\s*)''(\s*\);\s*\?>)/g, ",$1'required'$2");
+          }).join("\n");
+        }
+        blocks.push({ transformed });
+      }
+      if (!anyFieldBlock) {
+        alert("Select one or more field blocks in the output (Version 1 or Modern), then click Required.");
+        return;
+      }
+      const result = blocks.map(b => b.transformed).join("\n\n");
+      if (result === selectedText) return;
+      outputHistory.push(text);
+      const scrollTop = output.scrollTop;
+      output.value = text.slice(0, start) + result + text.slice(end);
+      output.focus();
+      output.setSelectionRange(start, start + result.length);
+      output.scrollTop = scrollTop;
     }
     
     function escPhp(s) {
@@ -579,11 +655,13 @@
         .join(", ");
     }
     
-    /** Render one field's HTML (for parsed reference). */
-    function renderOneField(rawName, fieldName, type, optionsArray, version) {
+    /** Render one field's HTML (for parsed reference). fieldName is used as-is (may include _ suffix for uniqueness). */
+    function renderOneField(rawName, fieldName, type, optionsArray, version, required) {
       const r = escPhp(rawName);
-      const f = escPhp(normalizeFieldName(fieldName));
+      const f = escPhp(fieldName);
       const rLower = escPhp((rawName || "").toLowerCase());
+      const reqLabel = required ? "*" : "";
+      const reqAttr = required ? "required" : "";
       const opts = optionsArray && optionsArray.length ? formatOptionsForPhp(optionsArray) : null;
       let out = "";
       if (type === "email") {
@@ -593,7 +671,7 @@
         <div class="group">
             <?php
                 $input->label('${r}', '');
-                $input->email('${r}', 'form_field', '${f}', 'placeholder="Enter ${rLower} here"', '', '', '${r}');
+                $input->email('${r}', 'form_field', '${f}', 'placeholder="Enter ${rLower} here"', '', '', '${f}');
             ?>
         </div>
     </div>
@@ -602,7 +680,7 @@
 `
           : `<div class="row g-3 mb-3">
     <div class="col-md-12">
-        <?php $input->email('${r}', '', '${f}', '', '', '', '${r}'); ?>
+        <?php $input->email('${r}', '', '${f}', '', '', '', '${f}'); ?>
     </div>
 </div>
 
@@ -688,7 +766,7 @@
         <div class="group">
             <?php
                 $input->label('${r}', '');
-                $input->email('${r}', 'form_field', '${f}', 'placeholder="Enter ${rLower} here"', '', '', '${r}');
+                $input->email('${r}', 'form_field', '${f}', 'placeholder="Enter ${rLower} here"', '', '', '${f}');
             ?>
         </div>
     </div>
@@ -697,7 +775,7 @@
 `
             : `<div class="row g-3 mb-3">
     <div class="col-md-12">
-        <?php $input->email('${r}', '', '${f}', '', '', '', '${r}'); ?>
+        <?php $input->email('${r}', '', '${f}', '', '', '', '${f}'); ?>
     </div>
 </div>
 
@@ -750,7 +828,7 @@
     <div class="form_box_col1">
         <div class="group">
             <?php
-                $input->label('${r}', '');
+                $input->label('${r}', '${reqLabel}');
                 $input->fields('${f}', 'form_field', '${f}', 'placeholder="Enter ${rLower} here"');
             ?>
         </div>
@@ -760,7 +838,7 @@
 `
             : `<div class="row g-3 mb-3">
     <div class="col-md-12">
-        <?php $input->fields('${f}', 'form-control', '${f}', ''); ?>
+        <?php $input->fields('${f}', 'form-control', '${f}', '${reqAttr}'); ?>
     </div>
 </div>
 
@@ -938,20 +1016,20 @@
     function generate(version) {
       let output = "";
       if (parsedFields.length > 0) {
-        parsedFields.forEach(f => {
-          const fieldName = normalizeFieldName(f.rawName);
-          output += renderOneField(f.rawName, fieldName, f.type, f.options || null, version);
+        const expanded = expandParsedFieldsForOther(parsedFields);
+        const uniquePairs = makeUniqueFieldNames(expanded.map((f) => f.rawName));
+        expanded.forEach((f, i) => {
+          output += renderOneField(f.rawName, uniquePairs[i].fieldName, f.type, f.options || null, version, !!f.required);
         });
         outputHistory = [];
         document.getElementById("output").value = output.trim();
         return;
       }
       const type = document.getElementById("fieldType").value;
-      const fields = getFieldLines();
-      if (!fields.length) return alert("Please enter at least one field name");
-    
-      fields.forEach(rawName => {
-        const fieldName = normalizeFieldName(rawName);
+      const lines = getFieldLines();
+      if (!lines.length) return alert("Please enter at least one field name");
+      const uniquePairs = makeUniqueFieldNames(lines);
+      uniquePairs.forEach(({ rawName, fieldName }) => {
     
         if (type === "text") {
           const isPhone = isPhoneContactField(rawName);
@@ -986,7 +1064,7 @@
         <div class="group">
             <?php
                 $input->label('${rawName}', '');
-                $input->email('${rawName}', 'form_field', '${fieldName}', 'placeholder="Enter ${rawName.toLowerCase()} here"', '', '', '${rawName}');
+                $input->email('${rawName}', 'form_field', '${fieldName}', 'placeholder="Enter ${rawName.toLowerCase()} here"', '', '', '${fieldName}');
             ?>
         </div>
     </div>
@@ -995,7 +1073,7 @@
 `
               : `<div class="row g-3 mb-3">
     <div class="col-md-12">
-        <?php $input->email('${rawName}', '', '${fieldName}', '', '', '', '${rawName}'); ?>
+        <?php $input->email('${rawName}', '', '${fieldName}', '', '', '', '${fieldName}'); ?>
     </div>
 </div>
 
