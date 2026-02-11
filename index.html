@@ -34,7 +34,10 @@
   </header>
 
   <section class="card form-reference-card">
-    <h2 class="card-title">Form reference (optional)</h2>
+    <h2 class="card-title">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+      Form reference (optional)
+    </h2>
     <p class="hint-block">Upload a PDF or DOCX to <strong>detect fields and convert to form markup</strong> (Version 1 is generated automatically). Or paste text and click Parse. <strong>Fields:</strong> <strong>Full Name - [Text field]</strong>, <strong>Email - [Email field]</strong>, <strong>Label - [Radio Buttons]</strong> / <strong>[Checkbox]</strong> / <strong>[Select]</strong> / <strong>[Date Picker]</strong> / <strong>[Time Picker]</strong>, <strong>[Amount]</strong>, <strong>[Age]</strong>, <strong>[Number only]</strong>, <strong>[Upload]</strong>, <strong>[Header]</strong>. <strong>Radio/checkbox/select options</strong> (preferred): one per line with bullet <strong>●</strong>. Alternative: <strong>Options:</strong> then one option per line, or <strong>Options: (Option A&#10;Option B&#10;Other)</strong>.</p>
     <div class="form-group">
       <label>Paste text or upload file</label>
@@ -42,19 +45,32 @@
     </div>
     <div class="form-reference-actions">
       <label class="btn btn-primary upload-file-label">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Upload file & convert
         <input type="file" id="formReferenceFile" accept=".pdf,.docx" onchange="handleFormReferenceFile(event)" class="upload-file-input" />
       </label>
-      <button type="button" class="btn btn-secondary" onclick="parseFormReferenceFromInput()">Parse reference</button>
-      <button type="button" class="btn btn-secondary" onclick="clearFormReference()">Clear & use manual</button>
-      <button type="button" class="btn btn-ghost btn-guide" onclick="openFileGuideModal()" title="See expected file format">File format guide</button>
+      <button type="button" class="btn btn-secondary" onclick="parseFormReferenceFromInput()">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Parse reference
+      </button>
+      <button type="button" class="btn btn-secondary" onclick="clearFormReference()">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Clear & use manual
+      </button>
+      <button type="button" class="btn btn-ghost btn-guide" onclick="openFileGuideModal()" title="See expected file format">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h8"/></svg>
+        File format guide
+      </button>
     </div>
     <div id="parsedPreview" class="parsed-preview empty"></div>
   </section>
 
   <div class="layout">
     <section class="card">
-      <h2 class="card-title">Configuration</h2>
+      <h2 class="card-title">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configuration
+      </h2>
 
       <div class="form-group">
         <label>Field type</label>
@@ -83,26 +99,50 @@
       </div>
 
       <div class="actions">
-        <button type="button" class="btn btn-primary" onclick="generate('v1')">Generate Version 1</button>
-        <button type="button" class="btn btn-secondary" onclick="generate('v2')">Generate Modern</button>
+        <button type="button" class="btn btn-primary" onclick="generate('v1')">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14h6"/><path d="M9 18h6"/></svg>
+          Generate Version 1
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="generate('v2')">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/></svg>
+          Generate Modern
+        </button>
       </div>
     </section>
 
     <section class="card">
-      <h2 class="card-title">Output</h2>
+      <h2 class="card-title">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        Output
+      </h2>
       <div class="output-wrap">
         <div class="output-header">
           <span class="hint">PHP markup</span>
           <div class="output-actions">
-            <button type="button" id="mergeBtn" class="btn-copy" onclick="openMergeModal()" title="Merge selected fields">Merge</button>
-            <button type="button" id="undoMergeBtn" class="btn-copy" onclick="undoMerge()" title="Undo last merge">Undo Merge</button>
-            <button type="button" id="requiredBtn" class="btn-copy" onclick="markSelectionRequired()" title="Mark selected field(s) as required">Required</button>
-            <button type="button" id="copyBtn" class="btn-copy" onclick="copyOutput()" title="Copy to clipboard">Copy</button>
+            <button type="button" id="mergeBtn" class="btn-copy" onclick="openMergeModal()" title="Merge selected fields">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              Merge
+            </button>
+            <button type="button" id="undoMergeBtn" class="btn-copy" onclick="undoMerge()" title="Undo last merge">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+              Undo Merge
+            </button>
+            <button type="button" id="requiredBtn" class="btn-copy" onclick="markSelectionRequired()" title="Mark selected field(s) as required">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Required
+            </button>
+            <button type="button" id="copyBtn" class="btn-copy" onclick="copyOutput()" title="Copy to clipboard">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
           </div>
         </div>
         <textarea id="output" rows="22" placeholder="Click “Generate Version 1” or “Generate Modern” to see the PHP markup here."></textarea>
         <div class="output-footer">
-          <button type="button" class="btn-copy" onclick="clearOutput()" title="Clear output">Clear</button>
+          <button type="button" class="btn-copy" onclick="clearOutput()" title="Clear output">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            Clear
+          </button>
         </div>
       </div>
     </section>
