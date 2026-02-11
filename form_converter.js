@@ -2,8 +2,15 @@
     function normalizeFieldName(name) {
       return (name || "")
         .trim()
+        // Convert "A / B" into "A_or_B"
+        .replace(/\s*\/\s*/g, "_or_")
+        // Replace all remaining spaces (including non‑breaking) with underscores
         .replace(/[\s\u00A0]+/g, "_")
+        // Replace remaining forward/back slashes with underscores
         .replace(/[\/\\]+/g, "_")
+        // Escape single quotes so Child's Name → Child\'s_Name
+        .replace(/'/g, "\\'")
+        // Collapse multiple underscores and trim from ends
         .replace(/_+/g, "_")
         .replace(/^_|_$/g, "") || "field";
     }
@@ -118,7 +125,7 @@
       const str = (text || "").trim();
       const dashBracketResult = parseFormReferenceDashBracket(str);
       if (dashBracketResult.length > 0) return dashBracketResult;
-      const typeRe = /\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Amount|Age|Number\s*only|Upload)\]/gi;
+      const typeRe = /\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Select|Amount|Age|Number\s*only|Upload|Header)\]/gi;
       const runOnMatches = [];
       let m;
       while ((m = typeRe.exec(str)) !== null) runOnMatches.push({ index: m.index, type: m[1], full: m[0] });
@@ -127,7 +134,7 @@
       }
       const rawLines = str.split(/\r?\n/).map(l => l.trim());
       const result = [];
-      const typeLineRe = /^\s*\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Amount|Age|Number\s*only|Upload)\]\s*$/i;
+      const typeLineRe = /^\s*\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Select|Amount|Age|Number\s*only|Upload|Header)\]\s*$/i;
       let i = 0;
       while (i < rawLines.length) {
         const line = rawLines[i];
@@ -140,15 +147,17 @@
           if (/email/.test(t)) type = "email";
           else if (/radio/.test(t)) type = "radio";
           else if (/checkbox/.test(t)) type = "checkbox";
+          else if (/select/.test(t)) type = "select";
           else if (/date/.test(t)) type = "date";
           else if (/time/.test(t)) type = "time";
           else if (/^amount$/.test(t)) type = "amount";
           else if (/^age$/.test(t)) type = "age";
           else if (/number\s*only/.test(t)) type = "numberOnly";
           else if (/^upload$/.test(t)) type = "upload";
+          else if (/^header$/.test(t)) type = "header";
           type = resolveTextSubtype(label, type);
           let options = null;
-          if (type === "radio" || type === "checkbox") {
+          if (type === "radio" || type === "checkbox" || type === "select") {
             options = [];
             const descStartRe = /^(Select|Choose|Enter|Optional|If applicable|Used for|Provide|This person)/i;
             let j = i + 1;
@@ -181,6 +190,10 @@
             type = "checkbox";
             const colonOpts = line.match(/checkbox\s*[:\s]+(.+)$/i) || line.match(/check\s*box\s*[:\s]+(.+)$/i);
             if (colonOpts && colonOpts[1]) options = colonOpts[1].split(/[,;]/).map(s => s.trim()).filter(Boolean);
+          } else if (/select/.test(rest)) {
+            type = "select";
+            const colonOpts = line.match(/select\s*[:\s]+(.+)$/i);
+            if (colonOpts && colonOpts[1]) options = colonOpts[1].split(/[,;]/).map(s => s.trim()).filter(Boolean);
           } else if (/date/.test(rest)) type = "date";
           else if (/time/.test(rest)) type = "time";
           else if (/^amount$/.test(rest)) type = "amount";
@@ -204,7 +217,7 @@
       const descStartRe = /^(Select|Choose|Enter|Optional|If applicable|Used for|Provide|This person)/i;
       const trim = (s) => s.trim();
       const notInstruction = (opt) => opt.length > 0 && !descStartRe.test(opt) && !(opt.length > 55 && /\.\s*$/.test(opt));
-      const nextFieldRe = /\s*-\s*\[(?:Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Amount|Age|Number\s*only|Upload)\]/i;
+      const nextFieldRe = /\s*-\s*\[(?:Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Select|Amount|Age|Number\s*only|Upload|Header)\]/i;
       function takeFirstSegment(text) {
         const t = trim(text);
         if (/\s{2,}/.test(t)) return t.split(/\s{2,}/)[0].trim();
@@ -257,7 +270,7 @@
     /** Preferred format: "Full Name - [Text field]" or "Primary Contact Name- [Text field]" (space before dash optional). */
     function parseFormReferenceDashBracket(str) {
       const result = [];
-      const re = /\s*-\s*\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Amount|Age|Number\s*only|Upload)\]/gi;
+      const re = /\s*-\s*\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Select|Amount|Age|Number\s*only|Upload|Header)\]/gi;
       const matches = [];
       let match;
       while ((match = re.exec(str)) !== null) {
@@ -275,14 +288,16 @@
         if (/email/.test(t)) type = "email";
         else if (/radio/.test(t)) type = "radio";
         else if (/checkbox/.test(t)) type = "checkbox";
+        else if (/select/.test(t)) type = "select";
         else if (/date/.test(t)) type = "date";
         else if (/time/.test(t)) type = "time";
         else if (/^amount$/.test(t)) type = "amount";
         else if (/^age$/.test(t)) type = "age";
         else if (/number\s*only/.test(t)) type = "numberOnly";
         else if (/^upload$/.test(t)) type = "upload";
+        else if (/^header$/.test(t)) type = "header";
         let options = null;
-        if (type === "radio" || type === "checkbox") {
+        if (type === "radio" || type === "checkbox" || type === "select") {
           const afterStart = matches[k].index + matches[k].full.length;
           const afterEnd = (k + 1 < matches.length) ? matches[k + 1].index : str.length;
           const afterText = str.slice(afterStart, afterEnd).trim();
@@ -307,14 +322,16 @@
         if (/email/.test(t)) type = "email";
         else if (/radio/.test(t)) type = "radio";
         else if (/checkbox/.test(t)) type = "checkbox";
+        else if (/select/.test(t)) type = "select";
         else if (/date/.test(t)) type = "date";
         else if (/time/.test(t)) type = "time";
         else if (/^amount$/.test(t)) type = "amount";
         else if (/^age$/.test(t)) type = "age";
         else if (/number\s*only/.test(t)) type = "numberOnly";
         else if (/^upload$/.test(t)) type = "upload";
+        else if (/^header$/.test(t)) type = "header";
         let options = null;
-        if (type === "radio" || type === "checkbox") {
+        if (type === "radio" || type === "checkbox" || type === "select") {
           const afterBracketStart = index + full.length;
           const afterEnd = (k + 1 < runOnMatches.length) ? runOnMatches[k + 1].index : str.length;
           const afterText = str.slice(afterBracketStart, afterEnd).trim();
@@ -411,7 +428,7 @@
     function toggleRadioOptions() {
       const type = document.getElementById("fieldType").value;
       const box = document.getElementById("radioOptionsBox");
-      if (type === "radio" || type === "checkbox") {
+      if (type === "radio" || type === "checkbox" || type === "select") {
         box.classList.add("visible");
       } else {
         box.classList.remove("visible");
@@ -665,7 +682,9 @@
     /** Render one field's HTML (for parsed reference). fieldName is used as-is (may include _ suffix for uniqueness). */
     function renderOneField(rawName, fieldName, type, optionsArray, version, required) {
       const r = escPhp(rawName);
-      const f = escPhp(fieldName);
+      // fieldName is already normalized and has single quotes escaped as \'
+      // so we can use it directly in PHP single‑quoted strings.
+      const f = fieldName;
       const rLower = escPhp((rawName || "").toLowerCase());
       const reqLabel = required ? "*" : "";
       const reqAttr = required ? "required" : "";
@@ -851,6 +870,29 @@
 
 `;
         }
+      } else if (type === "textarea") {
+        out = version === "v1"
+          ? `<div class="form_box">
+    <div class="form_box_col1">
+        <div class="group">
+            <?php
+                $input->label('${r}', '${reqLabel}');
+                $input->textarea('${f}', 'text form_field', '${f}', 'placeholder="Enter your ${rLower} here"');
+            ?>
+        </div>
+    </div>
+</div>
+
+`
+          : `<div class="row g-3 mb-3">
+    <div class="col-md-12">
+        <?php
+            $input->textarea('${f}', 'form-control', '${f}', 'style="height: 100px;"', '', ' ', '${r}');
+        ?>
+    </div>
+</div>
+
+`;
       } else if (type === "radio") {
         const optionsStr = opts || formatOptionsForPhp(["Option 1", "Option 2"]);
         out = version === "v1"
@@ -896,6 +938,30 @@
         <?php
             $input->label('${r}', '');
             $input->chkboxVal('${f}', array(${optionsStr}), '${f}', '', '3');
+        ?>
+    </div>
+</div>
+
+`;
+      } else if (type === "select") {
+        const optionsStr = opts || formatOptionsForPhp(["Option 1", "Option 2"]);
+        out = version === "v1"
+          ? `<div class="form_box">
+    <div class="form_box_col1">
+        <div class="group">
+            <?php
+                $input->label('${r}', '');
+                $input->select('${f}', 'form_field', array(${optionsStr}), '${f}');
+            ?>
+        </div>
+    </div>
+</div>
+
+`
+          : `<div class="row g-3 mb-3">
+    <div class="col-md-12">
+        <?php
+            $input->select('${r}', 'form-select', array(${optionsStr}), '${r}', '', '${r}', '${reqAttr}', '${r}', '');
         ?>
     </div>
 </div>
@@ -987,6 +1053,18 @@
     ?>
   </div>
 </div>
+
+`;
+      } else if (type === "header") {
+        // Header block: just a visual header + hidden field to mark section
+        if (version === "v1") {
+          return `<p class="fieldheader">${rawName}</p>
+<input type="hidden" name="${fieldName}" value=":" />
+
+`;
+        }
+        return `<p class="fieldheader text-center text-uppercase fw-bold py-2 mb-3">${rawName}</p>
+<input type="hidden" name="${fieldName}" value=":" />
 
 `;
       }
@@ -1150,6 +1228,32 @@
 `;
           }
         }
+
+        if (type === "textarea") {
+          const rawLower = (rawName || "").toLowerCase();
+          output += version === "v1"
+            ? `<div class="form_box">
+   <div class="form_box_col1">
+      <div class="group">
+         <?php
+            $input->label('${rawName}', '');
+            $input->textarea('${fieldName}', 'text form_field', '${fieldName}', 'placeholder="Enter your ${rawLower} here"');
+         ?>
+      </div>
+   </div>
+</div>
+
+`
+            : `<div class="row g-3 mb-3">
+    <div class="col-md-12">
+        <?php
+            $input->textarea('${fieldName}', 'form-control', '${fieldName}', 'style="height: 100px;"', '', ' ', '${rawName}');
+        ?>
+    </div>
+</div>
+
+`;
+        }
     
         if (type === "radio") {
           const options = getRadioOptions();
@@ -1202,6 +1306,34 @@
         <?php
             $input->label('${rawName}', '');
             $input->chkboxVal('${fieldName}', array(${options}), '${fieldName}', '', '3');
+        ?>
+    </div>
+</div>
+
+`;
+        }
+
+        if (type === "select") {
+          const options = getRadioOptions();
+          if (!options) return alert("Please enter select options");
+
+          output += version === "v1"
+            ? `<div class="form_box">
+    <div class="form_box_col1">
+        <div class="group">
+            <?php
+                $input->label('${rawName}', '');
+                $input->select('${fieldName}', 'form_field', array(${options}), '${fieldName}');
+            ?>
+        </div>
+    </div>
+</div>
+
+`
+            : `<div class="row g-3 mb-3">
+    <div class="col-md-12">
+        <?php
+            $input->select('${rawName}', 'form-select', array(${options}), '${rawName}', '', '${rawName}', '', '${rawName}', '');
         ?>
     </div>
 </div>
@@ -1301,6 +1433,18 @@
     ?>
   </div>
 </div>
+
+`;
+        }
+
+        if (type === "header") {
+          output += version === "v1"
+            ? `<p class="fieldheader">${rawName}</p>
+<input type="hidden" name="${fieldName}" value=":" />
+
+`
+            : `<p class="fieldheader text-center text-uppercase fw-bold py-2 mb-3">${rawName}</p>
+<input type="hidden" name="${fieldName}" value=":" />
 
 `;
         }
