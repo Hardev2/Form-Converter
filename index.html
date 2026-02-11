@@ -28,14 +28,14 @@
       </div>
       <div class="header-titles">
         <h1>Form Converter</h1>
-        <p>Generate PHP form markup for text, radio, and checkbox fields.</p>
+        <p>Generate PHP form markup for text, radio, checkbox, and select fields.</p>
       </div>
     </div>
   </header>
 
   <section class="card form-reference-card">
     <h2 class="card-title">Form reference (optional)</h2>
-    <p class="hint-block">Upload a PDF or DOCX to <strong>detect fields and convert to form markup</strong> (Version 1 is generated automatically). Or paste text and click Parse. <strong>Fields:</strong> <strong>Full Name - [Text field]</strong>, <strong>Email - [Email field]</strong>, <strong>Label - [Radio Buttons]</strong> / <strong>[Checkbox]</strong> / <strong>[Date Picker]</strong> / <strong>[Time Picker]</strong>, <strong>[Amount]</strong>, <strong>[Age]</strong>, <strong>[Number only]</strong>, <strong>[Upload]</strong>. <strong>Radio/checkbox options</strong> (preferred): one per line with bullet <strong>●</strong>. Alternative: <strong>Options:</strong> then one option per line, or <strong>Options: (Option A&#10;Option B&#10;Other)</strong>.</p>
+    <p class="hint-block">Upload a PDF or DOCX to <strong>detect fields and convert to form markup</strong> (Version 1 is generated automatically). Or paste text and click Parse. <strong>Fields:</strong> <strong>Full Name - [Text field]</strong>, <strong>Email - [Email field]</strong>, <strong>Label - [Radio Buttons]</strong> / <strong>[Checkbox]</strong> / <strong>[Select]</strong> / <strong>[Date Picker]</strong> / <strong>[Time Picker]</strong>, <strong>[Amount]</strong>, <strong>[Age]</strong>, <strong>[Number only]</strong>, <strong>[Upload]</strong>, <strong>[Header]</strong>. <strong>Radio/checkbox/select options</strong> (preferred): one per line with bullet <strong>●</strong>. Alternative: <strong>Options:</strong> then one option per line, or <strong>Options: (Option A&#10;Option B&#10;Other)</strong>.</p>
     <div class="form-group">
       <label>Paste text or upload file</label>
       <textarea id="formReferenceText" rows="4" placeholder="Full Name - [Text field]&#10;Email Address - [Email field]&#10;Sport - [Radio Buttons]"></textarea>
@@ -60,12 +60,15 @@
         <label>Field type</label>
         <select id="fieldType" onchange="toggleRadioOptions()">
           <option value="text">Text</option>
+          <option value="textarea">Textarea</option>
           <option value="radio">Radio</option>
           <option value="checkbox">Checkbox</option>
+          <option value="select">Select</option>
           <option value="amount">Amount</option>
           <option value="age">Age</option>
           <option value="numberOnly">Number only</option>
           <option value="upload">Upload</option>
+          <option value="header">Header</option>
         </select>
       </div>
 
@@ -95,10 +98,12 @@
             <button type="button" id="undoMergeBtn" class="btn-copy" onclick="undoMerge()" title="Undo last merge">Undo Merge</button>
             <button type="button" id="requiredBtn" class="btn-copy" onclick="markSelectionRequired()" title="Mark selected field(s) as required">Required</button>
             <button type="button" id="copyBtn" class="btn-copy" onclick="copyOutput()" title="Copy to clipboard">Copy</button>
-            <button type="button" class="btn-copy" onclick="clearOutput()" title="Clear output">Clear</button>
           </div>
         </div>
         <textarea id="output" rows="22" placeholder="Click “Generate Version 1” or “Generate Modern” to see the PHP markup here."></textarea>
+        <div class="output-footer">
+          <button type="button" class="btn-copy" onclick="clearOutput()" title="Clear output">Clear</button>
+        </div>
       </div>
     </section>
   </div>
@@ -125,6 +130,7 @@
 Email Address - [Email field]
 Phone - [Text field]
 Sport - [Radio Buttons]
+Subject - [Select]
 Birth Date - [Date Picker]
 Start Time - [Time Picker]
 Newsletter - [Checkbox]
@@ -152,12 +158,14 @@ Attach Resume - [Upload]</pre>
         <li><code>[Email field]</code></li>
         <li><code>[Radio Buttons]</code></li>
         <li><code>[Checkbox]</code></li>
+        <li><code>[Select]</code></li>
         <li><code>[Date Picker]</code></li>
         <li><code>[Time Picker]</code></li>
         <li><code>[Amount]</code> — currency/numeric amount</li>
         <li><code>[Age]</code> — age input</li>
         <li><code>[Number only]</code> — numbers only</li>
         <li><code>[Upload]</code> — file upload (e.g. .doc, .docx, .pdf | Max: 10MB)</li>
+        <li><code>[Header]</code> — section header (no input, only label + hidden marker)</li>
       </ul>
     </div>
     <div class="guide-modal-actions">
