@@ -29,11 +29,11 @@
     font-size: 18px;
     overflow-x: hidden;
   }
- .converter {
-  width: 100%;
-  max-width: calc(100vw - 300px);
-  margin: auto;
-}
+  .converter {
+    width: 100%;
+    max-width: calc(100vw - 600px);
+    margin: 48px 300px;
+  }
   .header {
     margin-bottom: 36px;
   }
@@ -270,6 +270,14 @@
     gap: 10px;
   }
   .output-actions .btn-copy {
+    min-height: 44px;
+  }
+  .output-footer {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 6px;
+  }
+  .output-footer .btn-copy {
     min-height: 44px;
   }
   .merge-modal-overlay {
