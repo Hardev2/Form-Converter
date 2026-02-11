@@ -31,8 +31,8 @@
   }
   .converter {
     width: 100%;
-    max-width: calc(100vw - 600px);
-    margin: 48px 300px;
+    max-width: calc(100vw - 300px);
+    margin: 0 auto;
   }
   .header {
     margin-bottom: 36px;
@@ -108,12 +108,42 @@
     box-shadow: var(--shadow);
   }
   .card-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     font-size: 0.9rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-muted);
     margin: 0 0 20px 0;
+  }
+  .card-title .icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    color: var(--accent);
+  }
+  .icon {
+    display: inline-block;
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: -0.2em;
+    flex-shrink: 0;
+    color: currentColor;
+  }
+  .btn .icon,
+  .btn-copy .icon {
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+  }
+  .btn,
+  .btn-copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
   .form-group {
     margin-bottom: 24px;
