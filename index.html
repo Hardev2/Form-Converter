@@ -28,7 +28,7 @@
       </div>
       <div class="header-titles">
         <h1>Form Converter</h1>
-        <p>Generate PHP form markup for all input fields.</p>
+        <p>Generate PHP form markup for text, radio, checkbox, and select fields.</p>
       </div>
     </div>
   </header>
@@ -41,7 +41,7 @@
     <p class="hint-block">Upload a PDF or DOCX to <strong>detect fields and convert to form markup</strong> (Version 1 is generated automatically). Or paste text and click Parse. <strong>Fields:</strong> <strong>Full Name - [Text field]</strong>, <strong>Email - [Email field]</strong>, <strong>Label - [Radio Buttons]</strong> / <strong>[Checkbox]</strong> / <strong>[Select]</strong> / <strong>[Date Picker]</strong> / <strong>[Time Picker]</strong>, <strong>[Amount]</strong>, <strong>[Age]</strong>, <strong>[Number only]</strong>, <strong>[Upload]</strong>, <strong>[Header]</strong>. <strong>Radio/checkbox/select options</strong> (preferred): one per line with bullet <strong>●</strong>. Alternative: <strong>Options:</strong> then one option per line, or <strong>Options: (Option A&#10;Option B&#10;Other)</strong>.</p>
     <div class="form-group">
       <label>Paste text or upload file</label>
-      <textarea id="formReferenceText" rows="4" placeholder="Full Name - [Text field]&#10;Email Address - [Email field]&#10;Sport - [Radio Buttons]"></textarea>
+      <textarea id="formReferenceText" rows="4" placeholder="Type here (example: Full Name - [Text field]&#10;Email Address - [Email field]&#10;Sport - [Radio Buttons])"></textarea>
     </div>
     <div class="form-reference-actions">
       <label class="btn btn-primary upload-file-label">
@@ -90,7 +90,7 @@
 
       <div class="form-group">
         <label>Field name(s) <span class="hint">— one per line</span></label>
-        <textarea id="fieldNames" rows="4" placeholder="Form Testing&#10;Test"></textarea>
+        <textarea id="fieldNames" rows="4" placeholder="Field 1&#10;Field 2&#10;Field 3"></textarea>
       </div>
 
       <div id="radioOptionsBox" class="form-group">
@@ -234,4 +234,3 @@ Attach Resume - [Upload]</pre>
 
 </body>
 </html>
-
