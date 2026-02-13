@@ -487,7 +487,8 @@
         const colIdx = lines.findIndex(l => /<div class="form_box_col\d+">/i.test(l));
         if (colIdx === -1) return lines.slice(2, -2).join("\n").trim();
         const closeIdx = lines.findIndex((l, i) => i > colIdx && /^\s*<\/div>\s*$/.test(l));
-        if (closeIdx !== -1) return lines.slice(colIdx + 1, closeIdx).join("\n").trim();
+        // Include the first </div> (group's closing tag) so merged output has complete <div class="group">...</div>
+        if (closeIdx !== -1) return lines.slice(colIdx + 1, closeIdx + 1).join("\n").trim();
         return lines.slice(2, -2).join("\n").trim();
       }
       const colIdx = lines.findIndex(l => /<div class="col-md-\d+">/i.test(l));
