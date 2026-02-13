@@ -354,6 +354,31 @@
       el.innerHTML = "Using reference: <strong>" + parsedFields.length + " field(s)</strong> — " +
         parsedFields.map(f => f.rawName + " (" + f.type + (f.options ? ": " + f.options.join(", ") : "") + ")").join(", ");
     }
+
+    /** Update the "Form fields" list (Full_Name, Email_Address, etc.) from parsed reference or manual field names. */
+    function updateFieldListPreview() {
+      const el = document.getElementById("fieldListPreview");
+      if (!el) return;
+      let names = [];
+      if (parsedFields.length > 0) {
+        const expanded = expandParsedFieldsForOther(parsedFields);
+        const uniquePairs = makeUniqueFieldNames(expanded.map((f) => f.rawName));
+        names = uniquePairs.map((p) => p.fieldName);
+      } else {
+        const lines = getFieldLines();
+        if (lines.length > 0) {
+          const uniquePairs = makeUniqueFieldNames(lines);
+          names = uniquePairs.map((p) => p.fieldName);
+        }
+      }
+      if (names.length === 0) {
+        el.textContent = "Parse a file or enter field names in Configuration.";
+        el.classList.add("empty");
+      } else {
+        el.textContent = names.join("\n");
+        el.classList.remove("empty");
+      }
+    }
     
     function parseFormReferenceFromInput() {
       const text = document.getElementById("formReferenceText").value.trim();
@@ -367,6 +392,7 @@
         return;
       }
       updateParsedPreview();
+      updateFieldListPreview();
     }
     
     function clearFormReference() {
@@ -374,6 +400,7 @@
       document.getElementById("formReferenceText").value = "";
       document.getElementById("formReferenceFile").value = "";
       updateParsedPreview();
+      updateFieldListPreview();
       document.getElementById("parsedPreview").classList.add("empty");
     }
     
@@ -418,6 +445,7 @@
       document.getElementById("formReferenceText").value = text;
       parsedFields = parseFormReference(text);
       updateParsedPreview();
+      updateFieldListPreview();
       if (!parsedFields.length) {
         alert("File read OK but no field lines found. Preferred format: Full Name - [Text field], Email - [Email field]");
         return;
@@ -1454,3 +1482,11 @@
       outputHistory = [];
       document.getElementById("output").value = output.trim();
     }
+
+    (function initFieldListPreview() {
+      const fieldNamesEl = document.getElementById("fieldNames");
+      if (fieldNamesEl) {
+        fieldNamesEl.addEventListener("input", updateFieldListPreview);
+        fieldNamesEl.addEventListener("change", updateFieldListPreview);
+      }
+    })();
