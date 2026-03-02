@@ -80,7 +80,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     padding: 16px 20px;
-    min-height: 200px;
+    min-height: 335px;
   }
   .field-list-preview {
     font-family: 'JetBrains Mono', monospace;
@@ -628,3 +628,4 @@
   .parsed-preview.empty {
     display: none;
   }
+
