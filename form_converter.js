@@ -15,42 +15,49 @@ function normalizeFieldName(name) {
     .replace(/^_|_$/g, "") || "field";
 }
 
-/** True if the field name suggests contact / phone number. */
 function isPhoneContactField(rawName) {
   const lower = (rawName || "").trim().toLowerCase();
-  const phoneKeywords = /contact|phone|mobile|telephone|cell|fax/;
-  return phoneKeywords.test(lower);
+  return /contact|phone|mobile|telephone|cell|fax/.test(lower);
 }
 
-/** True if the field name suggests email address. */
 function isEmailField(rawName) {
   const lower = (rawName || "").trim().toLowerCase();
   return /email|e-mail|e_mail/.test(lower);
 }
 
-/** True if the field name suggests time. */
 function isTimeField(rawName) {
   const lower = (rawName || "").trim().toLowerCase();
   return /\btime\b/.test(lower);
 }
 
-/** True if the field name suggests date. */
 function isDateField(rawName) {
   const lower = (rawName || "").trim().toLowerCase();
   return /\bdate\b/.test(lower);
 }
 
-/** True if the label suggests amount/currency (e.g. salary, price, cost). */
 function isAmountField(rawName) {
   const lower = (rawName || "").trim().toLowerCase();
   return /\b(amount|salary|salaries|price|cost|fee|fees|payment|income|revenue|budget|total|sum|wage|compensation)\b/.test(lower);
 }
 
-/** True if the label suggests age. */
 function isAgeField(rawName) {
   const lower = (rawName || "").trim().toLowerCase();
   return /\bage\b/.test(lower);
 }
+
+/** True if the label suggests number-only (e.g. quantity, count). */
+
+
+
+
+
+
+
+
+
+
+
+
 
 /** True if the label suggests number-only (e.g. quantity, count). */
 function isNumberOnlyField(rawName) {
@@ -76,9 +83,9 @@ function resolveTextSubtype(rawName, type) {
 }
 
 function getFieldLines() {
-  return document
-    .getElementById("fieldNames")
-    .value
+  const el = document.getElementById("fieldNames");
+  if (!el) return [];
+  return el.value
     .split("\n")
     .map(line => line.trim())
     .filter(Boolean);
@@ -97,386 +104,578 @@ function makeUniqueFieldNames(rawNames) {
   });
 }
 
-/** If a radio/checkbox has "Other" or "Please Specify" in options, insert an Other text field after it. */
-function expandParsedFieldsForOther(fields) {
-  const result = [];
-  for (const f of fields) {
-    result.push(f);
-    if ((f.type === "radio" || f.type === "checkbox") && f.options && f.options.length) {
-      const hasOther = f.options.some((opt) => {
-        const lower = (opt + "").trim().toLowerCase();
-        return lower === "other" || lower === "please specify";
-      });
-      if (hasOther) result.push({ rawName: "Other", type: "text", options: null, required: true });
-    }
-  }
-  return result;
+
+const FIELD_TYPE_OPTIONS = [
+  { value: "text", label: "Text" },
+  { value: "textarea", label: "Textarea" },
+  { value: "radio", label: "Radio" },
+  { value: "checkbox", label: "Checkbox" },
+  { value: "select", label: "Select" },
+  { value: "email", label: "Email" },
+  { value: "date", label: "Date" },
+  { value: "time", label: "Time" },
+  { value: "amount", label: "Amount" },
+  { value: "age", label: "Age" },
+  { value: "numberOnly", label: "Number" },
+  { value: "upload", label: "Attachment" },
+  { value: "header", label: "Header" }
+];
+const OPTION_TYPES = { radio: true, checkbox: true, select: true };
+const MAX_ROW_COLS = 3;
+
+let workspaceVersion = "v2";
+let formFields = [];
+let canvasRows = [];
+let canvasHistory = [];
+let uidSeq = 0;
+let dragFieldId = null;
+let nameSyncTimer = null;
+let statusTimer = null;
+
+function uid(prefix) {
+  uidSeq += 1;
+  return (prefix || "id") + "_" + uidSeq;
 }
 
-let parsedFields = [];
-
-/** Parse reference text into [{ rawName, type, options? }]. Supports (in order of preference):
- * 1) Preferred: "Label - [Text field]" or "Full Name - [Email field]" (dash before bracket).
- * 2) Run-on text (PDF-style): "Label  [Text field]  description..." and "●   Option1  ●   Option2"
- * 3) Line-based: "Label\n[Text field]" with options on following lines.
- * 4) Dash format: "Label - text field", "Label - radio: A, B, C".
- */
-function parseFormReference(text) {
-  const str = (text || "").trim();
-  const dashBracketResult = parseFormReferenceDashBracket(str);
-  if (dashBracketResult.length > 0) return dashBracketResult;
-  const typeRe = /\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Select|Amount|Age|Number\s*only|Upload|Header)\]/gi;
-  const runOnMatches = [];
-  let m;
-  while ((m = typeRe.exec(str)) !== null) runOnMatches.push({ index: m.index, type: m[1], full: m[0] });
-  if (runOnMatches.length > 0) {
-    return parseFormReferenceRunOn(str, runOnMatches);
-  }
-  const rawLines = str.split(/\r?\n/).map(l => l.trim());
-  const result = [];
-  const typeLineRe = /^\s*\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Select|Amount|Age|Number\s*only|Upload|Header)\]\s*$/i;
-  let i = 0;
-  while (i < rawLines.length) {
-    const line = rawLines[i];
-    const typeMatch = line.match(typeLineRe);
-    if (typeMatch) {
-      const label = i > 0 ? rawLines[i - 1] : "";
-      if (!label) { i++; continue; }
-      let type = "text";
-      const t = typeMatch[1].toLowerCase();
-      if (/email/.test(t)) type = "email";
-      else if (/radio/.test(t)) type = "radio";
-      else if (/checkbox/.test(t)) type = "checkbox";
-      else if (/select/.test(t)) type = "select";
-      else if (/date/.test(t)) type = "date";
-      else if (/time/.test(t)) type = "time";
-      else if (/^amount$/.test(t)) type = "amount";
-      else if (/^age$/.test(t)) type = "age";
-      else if (/number\s*only/.test(t)) type = "numberOnly";
-      else if (/^upload$/.test(t)) type = "upload";
-      else if (/^header$/.test(t)) type = "header";
-      type = resolveTextSubtype(label, type);
-      let options = null;
-      if (type === "radio" || type === "checkbox" || type === "select") {
-        options = [];
-        const descStartRe = /^(Select|Choose|Enter|Optional|If applicable|Used for|Provide|This person)/i;
-        let j = i + 1;
-        while (j < rawLines.length) {
-          const ln = rawLines[j];
-          if (ln.match(/^\s*\[.+\]\s*$/)) break;
-          if (ln === "" && type === "radio") { j++; continue; }
-          if (type === "radio" && (descStartRe.test(ln) || (ln.length > 55 && /\.\s*$/.test(ln)))) break;
-          if (ln !== "") options.push(ln);
-          j++;
-        }
-        options = options.length ? options : null;
-      }
-      result.push({ rawName: label, type, options: options && options.length ? options : null });
-      i++;
-      continue;
-    }
-    const dashMatch = line.match(/^(.+?)\s*[-–—:]\s*(.+)$/);
-    if (dashMatch) {
-      let rawName = dashMatch[1].trim();
-      let rest = dashMatch[2].trim().toLowerCase();
-      let type = "text";
-      let options = null;
-      if (/email/.test(rest)) type = "email";
-      else if (/radio/.test(rest)) {
-        type = "radio";
-        const colonOpts = line.match(/radio\s*[:\s]+(.+)$/i);
-        if (colonOpts && colonOpts[1]) options = colonOpts[1].split(/[,;]/).map(s => s.trim()).filter(Boolean);
-      } else if (/checkbox|check\s*box/.test(rest)) {
-        type = "checkbox";
-        const colonOpts = line.match(/checkbox\s*[:\s]+(.+)$/i) || line.match(/check\s*box\s*[:\s]+(.+)$/i);
-        if (colonOpts && colonOpts[1]) options = colonOpts[1].split(/[,;]/).map(s => s.trim()).filter(Boolean);
-      } else if (/select/.test(rest)) {
-        type = "select";
-        const colonOpts = line.match(/select\s*[:\s]+(.+)$/i);
-        if (colonOpts && colonOpts[1]) options = colonOpts[1].split(/[,;]/).map(s => s.trim()).filter(Boolean);
-      } else if (/date/.test(rest)) type = "date";
-      else if (/time/.test(rest)) type = "time";
-      else if (/^amount$/.test(rest)) type = "amount";
-      else if (/^age$/.test(rest)) type = "age";
-      else if (/number\s*only/.test(rest)) type = "numberOnly";
-      else if (/^upload$/.test(rest)) type = "upload";
-      type = resolveTextSubtype(rawName, type);
-      if (rawName) result.push({ rawName, type, options });
-    }
-    i++;
-  }
-  return result;
+function snapshotCanvas() {
+  canvasHistory.push(JSON.stringify({
+    formFields: formFields.map((f) => ({ ...f, options: (f.options || []).slice() })),
+    canvasRows: canvasRows.map((r) => ({ id: r.id, fieldIds: r.fieldIds.slice() })),
+    workspaceVersion
+  }));
+  if (canvasHistory.length > 40) canvasHistory.shift();
 }
 
-/** Extract options from text after [Radio Buttons] or [Checkbox].
- * 1) Bullet format: "● Option A\n● Option B" — only bullet lines are options.
- * 2) Explicit "Options:" format: "Options:\nOption A\nOption B"
- * 3) Plain lines: "Soccer\nBasketball\nVolleyball" — each line is an option; stop when we hit a line that looks like the next field (e.g. "Label - [Radio Buttons]").
- */
-function extractOptionsFromAfterText(afterText) {
-  const descStartRe = /^(Select|Choose|Enter|Optional|If applicable|Used for|Provide|This person)/i;
-  const trim = (s) => s.trim();
-  const notInstruction = (opt) => opt.length > 0 && !descStartRe.test(opt) && !(opt.length > 55 && /\.\s*$/.test(opt));
-  const nextFieldRe = /\s*-\s*\[(?:Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Select|Amount|Age|Number\s*only|Upload|Header)\]/i;
-  function takeFirstSegment(text) {
-    const t = trim(text);
-    if (/\s{2,}/.test(t)) return t.split(/\s{2,}/)[0].trim();
-    return t;
-  }
-  if (/[●•]/.test(afterText)) {
-    const lines = afterText.split(/\r?\n/);
-    let lastBulletIdx = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (/^\s*[●•]/.test(lines[i])) lastBulletIdx = i;
-    }
-    if (lastBulletIdx >= 0) {
-      afterText = lines.slice(0, lastBulletIdx + 1).join("\n");
-    }
-    const opts = [];
-    const bulletLineRe = /^\s*[●•]\s*(.+)$/;
-    afterText.split(/\r?\n/).forEach((line) => {
-      const m = line.match(bulletLineRe);
-      if (!m) return;
-      const afterBullet = trim(m[1]);
-      const parts = afterBullet.split(/\s*[●•]\s*/).map(trim).filter(Boolean);
-      if (parts.length > 1) {
-        parts.forEach((p) => {
-          const opt = takeFirstSegment(p);
-          if (opt && notInstruction(opt)) opts.push(opt);
-        });
-      } else {
-        const opt = takeFirstSegment(afterBullet);
-        if (opt && notInstruction(opt)) opts.push(opt);
-      }
-    });
-    if (opts.length > 0) return opts;
-  }
-  if (/^Options:\s/i.test(afterText)) {
-    const normalized = afterText.replace(/^Options:\s*/i, "").replace(/^Options:\s*\(\s*/i, "").replace(/\s*\)\s*$/, "");
-    const byLine = normalized.split(/\r?\n/).map(trim).filter(line => line && line !== "(" && line !== ")");
-    const opts = byLine.filter(notInstruction);
-    if (opts.length > 0) return opts;
-  }
-  const byLine = afterText.split(/\r?\n/).map(trim).filter(Boolean);
-  const opts = [];
-  for (const line of byLine) {
-    if (nextFieldRe.test(line)) break;
-    if (line.length > 0 && line.length < 120 && notInstruction(line)) opts.push(line);
-  }
-  if (opts.length > 0) return opts;
-  return null;
+function restoreCanvasState(state) {
+  formFields = (state.formFields || []).map((f) => ({ ...f, options: (f.options || []).slice() }));
+  canvasRows = (state.canvasRows || []).map((r) => ({ id: r.id, fieldIds: r.fieldIds.slice() }));
+  workspaceVersion = state.workspaceVersion === "v1" ? "v1" : "v2";
 }
 
-/** Preferred format: "Full Name - [Text field]" or "Primary Contact Name- [Text field]" (space before dash optional). */
-function parseFormReferenceDashBracket(str) {
-  const result = [];
-  const re = /\s*-\s*\[(Text\s*field|Email\s*field|Radio\s*Buttons?|Date\s*Picker|Time\s*Picker|Checkbox|Select|Amount|Age|Number\s*only|Upload|Header)\]/gi;
-  const matches = [];
-  let match;
-  while ((match = re.exec(str)) !== null) {
-    matches.push({ index: match.index, type: match[1], full: match[0], dashStart: match.index });
-  }
-  if (matches.length === 0) return result;
-  for (let k = 0; k < matches.length; k++) {
-    const labelEnd = matches[k].dashStart;
-    const labelStart = k === 0 ? 0 : (matches[k - 1].index + matches[k - 1].full.length);
-    let beforeDash = str.slice(labelStart, labelEnd).trim().replace(/\s*-\s*$/, "").trim();
-    const chunks = beforeDash.split(/\s{2,}/).filter(Boolean);
-    const rawName = chunks.length ? chunks[chunks.length - 1].trim() : beforeDash || "Field";
-    let type = "text";
-    const t = matches[k].type.toLowerCase();
-    if (/email/.test(t)) type = "email";
-    else if (/radio/.test(t)) type = "radio";
-    else if (/checkbox/.test(t)) type = "checkbox";
-    else if (/select/.test(t)) type = "select";
-    else if (/date/.test(t)) type = "date";
-    else if (/time/.test(t)) type = "time";
-    else if (/^amount$/.test(t)) type = "amount";
-    else if (/^age$/.test(t)) type = "age";
-    else if (/number\s*only/.test(t)) type = "numberOnly";
-    else if (/^upload$/.test(t)) type = "upload";
-    else if (/^header$/.test(t)) type = "header";
-    let options = null;
-    if (type === "radio" || type === "checkbox" || type === "select") {
-      const afterStart = matches[k].index + matches[k].full.length;
-      const afterEnd = (k + 1 < matches.length) ? matches[k + 1].index : str.length;
-      const afterText = str.slice(afterStart, afterEnd).trim();
-      options = extractOptionsFromAfterText(afterText);
-    }
-    type = resolveTextSubtype(rawName, type);
-    result.push({ rawName, type, options });
-  }
-  return result;
-}
-
-function parseFormReferenceRunOn(str, runOnMatches) {
-  const result = [];
-  for (let k = 0; k < runOnMatches.length; k++) {
-    const { index, type: typeStr, full } = runOnMatches[k];
-    const labelStart = k === 0 ? 0 : (runOnMatches[k - 1].index + runOnMatches[k - 1].full.length);
-    const beforeBracket = str.slice(labelStart, index).trim();
-    const chunks = beforeBracket.split(/\s{2,}/).filter(Boolean);
-    const rawName = chunks.length ? chunks[chunks.length - 1].trim() : (beforeBracket.slice(-80).trim() || "Field");
-    let type = "text";
-    const t = typeStr.toLowerCase();
-    if (/email/.test(t)) type = "email";
-    else if (/radio/.test(t)) type = "radio";
-    else if (/checkbox/.test(t)) type = "checkbox";
-    else if (/select/.test(t)) type = "select";
-    else if (/date/.test(t)) type = "date";
-    else if (/time/.test(t)) type = "time";
-    else if (/^amount$/.test(t)) type = "amount";
-    else if (/^age$/.test(t)) type = "age";
-    else if (/number\s*only/.test(t)) type = "numberOnly";
-    else if (/^upload$/.test(t)) type = "upload";
-    else if (/^header$/.test(t)) type = "header";
-    let options = null;
-    if (type === "radio" || type === "checkbox" || type === "select") {
-      const afterBracketStart = index + full.length;
-      const afterEnd = (k + 1 < runOnMatches.length) ? runOnMatches[k + 1].index : str.length;
-      const afterText = str.slice(afterBracketStart, afterEnd).trim();
-      options = extractOptionsFromAfterText(afterText);
-    }
-    type = resolveTextSubtype(rawName, type);
-    result.push({ rawName, type, options });
-  }
-  return result;
-}
-
-function updateParsedPreview() {
-  const el = document.getElementById("parsedPreview");
-  if (!parsedFields.length) {
-    el.classList.add("empty");
-    el.textContent = "";
-    return;
-  }
-  el.classList.remove("empty");
-  el.innerHTML = "Using reference: <strong>" + parsedFields.length + " field(s)</strong> — " +
-    parsedFields.map(f => f.rawName + " (" + f.type + (f.options ? ": " + f.options.join(", ") : "") + ")").join(", ");
-}
-
-/** Update the "Form fields" list (Full_Name, Email_Address, etc.) from parsed reference or manual field names. */
-function updateFieldListPreview() {
-  const el = document.getElementById("fieldListPreview");
-  if (!el) return;
-  let names = [];
-  if (parsedFields.length > 0) {
-    const expanded = expandParsedFieldsForOther(parsedFields);
-    const uniquePairs = makeUniqueFieldNames(expanded.map((f) => f.rawName));
-    names = uniquePairs.map((p) => p.fieldName);
-  } else {
-    const lines = getFieldLines();
-    if (lines.length > 0) {
-      const uniquePairs = makeUniqueFieldNames(lines);
-      names = uniquePairs.map((p) => p.fieldName);
-    }
-  }
-  if (names.length === 0) {
-    el.textContent = "Parse a file or enter field names in Configuration.";
-    el.classList.add("empty");
-  } else {
-    el.textContent = names.join("\n");
-    el.classList.remove("empty");
-  }
-}
-
-function parseFormReferenceFromInput() {
-  const text = document.getElementById("formReferenceText").value.trim();
-  if (!text) {
-    alert("Paste form reference text or upload a PDF/DOCX file first.");
-    return;
-  }
-  parsedFields = parseFormReference(text);
-  if (!parsedFields.length) {
-    alert("No fields found. Preferred format: Full Name - [Text field], Email - [Email field], or Label - text field");
-    return;
-  }
-  updateParsedPreview();
-  updateFieldListPreview();
-}
-
-function clearFormReference() {
-  parsedFields = [];
-  document.getElementById("formReferenceText").value = "";
-  document.getElementById("formReferenceFile").value = "";
-  updateParsedPreview();
-  updateFieldListPreview();
-  document.getElementById("parsedPreview").classList.add("empty");
-}
-
-async function extractTextFromPdf(arrayBuffer) {
-  if (typeof pdfjsLib === "undefined") return "";
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  let fullText = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const line = content.items.map(it => it.str).join(" ");
-    fullText += line + "\n";
-  }
-  return fullText;
-}
-
-async function extractTextFromDocx(arrayBuffer) {
-  if (typeof mammoth === "undefined") return "";
-  const result = await mammoth.extractRawText({ arrayBuffer });
-  return result.value || "";
-}
-
-async function handleFormReferenceFile(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const name = (file.name || "").toLowerCase();
-  const isPdf = name.endsWith(".pdf");
-  const isDocx = name.endsWith(".docx");
-  if (!isPdf && !isDocx) {
-    alert("Please upload a PDF or DOCX file.");
-    return;
-  }
-  const arrayBuffer = await file.arrayBuffer();
-  let text = "";
+function defaultTypeForName(rawName) {
   try {
-    if (isPdf) text = await extractTextFromPdf(arrayBuffer);
-    else text = await extractTextFromDocx(arrayBuffer);
-  } catch (e) {
-    alert("Could not read file: " + (e.message || "unknown error"));
-    return;
+    if (isEmailField(rawName)) return "email";
+    if (isDateField(rawName)) return "date";
+    if (isTimeField(rawName)) return "time";
+    return resolveTextSubtype(rawName, "text");
+  } catch (err) {
+    console.error(err);
+    return "text";
   }
-  document.getElementById("formReferenceText").value = text;
-  parsedFields = parseFormReference(text);
-  updateParsedPreview();
-  updateFieldListPreview();
-  if (!parsedFields.length) {
-    alert("File read OK but no field lines found. Preferred format: Full Name - [Text field], Email - [Email field]");
-    return;
-  }
-  generate("v1");
 }
 
-function toggleRadioOptions() {
-  const type = document.getElementById("fieldType").value;
-  const box = document.getElementById("radioOptionsBox");
-  if (type === "radio" || type === "checkbox" || type === "select") {
-    box.classList.add("visible");
-  } else {
-    box.classList.remove("visible");
+function fieldById(id) {
+  return formFields.find((f) => f.id === id);
+}
+
+function needsOptions(type) {
+  return !!OPTION_TYPES[type];
+}
+
+function escapeHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function isHeaderType(fieldId) {
+  const f = fieldById(fieldId);
+  return !!(f && f.type === "header");
+}
+
+function rowContainsHeader(row) {
+  return row.fieldIds.some(isHeaderType);
+}
+
+function findRowIndexForField(fieldId) {
+  return canvasRows.findIndex((r) => r.fieldIds.includes(fieldId));
+}
+
+function removeFieldFromRows(fieldId) {
+  canvasRows.forEach((row) => {
+    row.fieldIds = row.fieldIds.filter((id) => id !== fieldId);
+  });
+  canvasRows = canvasRows.filter((row) => row.fieldIds.length);
+}
+
+function syncVersionButtons() {
+  document.querySelectorAll(".version-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-version") === workspaceVersion);
+  });
+}
+
+function setWorkspaceVersion(version) {
+  const next = version === "v1" ? "v1" : "v2";
+  if (next === workspaceVersion) {
+    generateFromWorkspace();
+    return;
   }
+  snapshotCanvas();
+  workspaceVersion = next;
+  syncVersionButtons();
+  generateFromWorkspace();
+}
+
+function undoCanvas() {
+  if (!canvasHistory.length) {
+    alert("Nothing to undo.");
+    return;
+  }
+  restoreCanvasState(JSON.parse(canvasHistory.pop()));
+  syncVersionButtons();
+  syncNamesTextarea();
+  renderWorkspace();
+}
+
+function syncNamesTextarea() {
+  const el = document.getElementById("fieldNames");
+  if (!el) return;
+  const next = formFields.map((f) => f.rawName).join("\n");
+  if (el.value !== next) el.value = next;
+}
+
+
+
+function syncFromNameInput() {
+  const namesEl = document.getElementById("fieldNames");
+  if (!namesEl) return;
+  const lines = getFieldLines();
+  const uniquePairs = makeUniqueFieldNames(lines);
+  const used = new Set();
+  const nextFields = uniquePairs.map(({ rawName, fieldName }) => {
+    const existing = formFields.find((f) => f.rawName === rawName && !used.has(f.id));
+    if (existing) {
+      used.add(existing.id);
+      return { ...existing, fieldName, options: (existing.options || []).slice() };
+    }
+    return {
+      id: uid("fld"),
+      rawName,
+      fieldName,
+      type: defaultTypeForName(rawName),
+      options: [],
+      required: false
+    };
+  });
+  const keep = new Set(nextFields.map((f) => f.id));
+  canvasRows = canvasRows
+    .map((row) => ({ id: row.id, fieldIds: row.fieldIds.filter((id) => keep.has(id)) }))
+    .filter((row) => row.fieldIds.length);
+  const inCanvas = new Set(canvasRows.flatMap((r) => r.fieldIds));
+  nextFields.forEach((f) => {
+    if (!inCanvas.has(f.id)) canvasRows.push({ id: uid("row"), fieldIds: [f.id] });
+  });
+  formFields = nextFields;
+  renderWorkspace();
+}
+
+function renderWorkspace() {
+  renderTypeList();
+  renderCanvas();
+  generateFromWorkspace();
+  updateDashStats();
+}
+
+function updateDashStats() {
+  const fieldsEl = document.getElementById("statFields");
+  if (fieldsEl) fieldsEl.textContent = String(formFields.length);
+  const layoutEl = document.getElementById("statLayout");
+  if (!layoutEl) return;
+  const maxCols = canvasRows.reduce(function (m, r) { return Math.max(m, r.fieldIds.length); }, 0);
+  layoutEl.textContent = maxCols <= 1 ? "1 col" : maxCols + " col";
+}
+
+function renderTypeList() {
+  const root = document.getElementById("fieldTypesList");
+  if (!root) return;
+  if (!formFields.length) {
+    root.innerHTML = '<p class="empty-hint">Enter field names to configure a type for each generated field.</p>';
+    return;
+  }
+  root.innerHTML = formFields.map((f) => {
+    const radios = FIELD_TYPE_OPTIONS.map((opt) => {
+      const checked = f.type === opt.value ? " checked" : "";
+      return `<label class="type-radio"><input type="radio" name="type_${f.id}" value="${opt.value}"${checked}><span>${opt.label}</span></label>`;
+    }).join("");
+    const showOpts = needsOptions(f.type);
+    const optsVal = (f.options || []).join("\n");
+    return `<div class="type-row" data-field-id="${f.id}">
+      <div class="type-row-main">
+        <code class="gen-name">${escapeHtml(f.fieldName)}</code>
+        <div class="type-radios">${radios}</div>
+      </div>
+      <div class="type-row-extra">
+        <label class="req-toggle"><input type="checkbox" data-role="required"${f.required ? " checked" : ""}><span>Required</span></label>
+        ${showOpts ? `<textarea class="field-options" data-role="options" rows="2" placeholder="Options — one per line">${escapeHtml(optsVal)}</textarea>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function canvasPreviewMarkup(f) {
+  const label = escapeHtml(f.rawName);
+  if (f.type === "header") {
+    return `<p class="canvas-header-label">${label}</p>`;
+  }
+  if (f.type === "textarea") {
+    return `<label class="canvas-label">${label}</label><div class="canvas-bar canvas-bar-tall"></div>`;
+  }
+  if (f.type === "radio" || f.type === "checkbox") {
+    const opts = (f.options && f.options.length ? f.options : ["Option 1", "Option 2", "Option 3"]).slice(0, 6);
+    const markClass = f.type === "radio" ? "radio" : "checkbox";
+    const items = opts.map((o) => `<span class="canvas-choice"><i class="choice-mark ${markClass}" aria-hidden="true"></i>${escapeHtml(o)}</span>`).join("");
+    return `<div class="canvas-choice-stack">
+      <label class="canvas-label">${label}</label>
+      <div class="canvas-choices">${items}</div>
+    </div>`;
+  }
+  if (f.type === "select") {
+    return `<label class="canvas-label">${label}</label><div class="canvas-bar canvas-select">Select…</div>`;
+  }
+  if (f.type === "upload") {
+    return `<label class="canvas-label">${label}</label><div class="canvas-bar canvas-upload">Attachment</div>`;
+  }
+  return `<label class="canvas-label">${label}</label><div class="canvas-bar"></div>`;
+}
+
+function renderCanvasField(fieldId) {
+  const f = fieldById(fieldId);
+  if (!f) return "";
+  const typeLabel = (FIELD_TYPE_OPTIONS.find((o) => o.value === f.type) || { label: f.type }).label;
+  return `<article class="canvas-field type-${escapeHtml(f.type)}" draggable="true" data-field-id="${f.id}" data-drop="onto">
+    <div class="canvas-field-meta">
+      <span class="canvas-grab" aria-hidden="true"></span>
+      <span class="canvas-type-badge">${escapeHtml(typeLabel)}</span>
+      ${f.required ? '<span class="canvas-req">*</span>' : ""}
+    </div>
+    ${canvasPreviewMarkup(f)}
+  </article>`;
+}
+
+function renderCanvas() {
+  const canvas = document.getElementById("freeCanvas");
+  if (!canvas) return;
+  if (!formFields.length) {
+    canvas.innerHTML = '<div class="drop-placeholder"><span class="drop-plus" aria-hidden="true">+</span><p>Drag fields here</p><p class="empty-hint">Type names on the left to add fields. Drop beside another field to merge columns.</p></div>';
+    return;
+  }
+  let html = "";
+  canvasRows.forEach((row, ri) => {
+    html += `<div class="canvas-gap" data-drop="row" data-index="${ri}"></div>`;
+    const cols = row.fieldIds.length;
+    html += `<div class="canvas-row cols-${cols}" data-row-id="${row.id}">`;
+    row.fieldIds.forEach((fid, ci) => {
+      html += `<div class="canvas-col-gap" data-drop="col" data-row-id="${row.id}" data-index="${ci}"></div>`;
+      html += renderCanvasField(fid);
+    });
+    if (cols < MAX_ROW_COLS) {
+      html += `<div class="canvas-col-gap canvas-col-gap-end" data-drop="col" data-row-id="${row.id}" data-index="${cols}"></div>`;
+    }
+    if (cols > 1) {
+      html += `<button type="button" class="canvas-split" data-row-id="${row.id}" title="Separate into single columns">Split</button>`;
+    }
+    html += `</div>`;
+  });
+  html += `<div class="canvas-gap" data-drop="row" data-index="${canvasRows.length}"></div>`;
+  canvas.innerHTML = html;
+}
+
+function insertFieldAsNewRow(fieldId, index) {
+  const from = findRowIndexForField(fieldId);
+  removeFieldFromRows(fieldId);
+  let insertAt = index;
+  if (from !== -1 && from < index) insertAt = Math.max(0, index - 1);
+  insertAt = Math.max(0, Math.min(insertAt, canvasRows.length));
+  canvasRows.splice(insertAt, 0, { id: uid("row"), fieldIds: [fieldId] });
+}
+
+function insertFieldInRow(fieldId, rowId, colIndex) {
+  const row = canvasRows.find((r) => r.id === rowId);
+  if (!row) return;
+  if (isHeaderType(fieldId) || rowContainsHeader(row)) {
+    const ri = canvasRows.indexOf(row);
+    insertFieldAsNewRow(fieldId, ri + 1);
+    return;
+  }
+  if (row.fieldIds.includes(fieldId)) {
+    const from = row.fieldIds.indexOf(fieldId);
+    row.fieldIds.splice(from, 1);
+    let to = colIndex;
+    if (to > from) to -= 1;
+    to = Math.max(0, Math.min(to, row.fieldIds.length));
+    row.fieldIds.splice(to, 0, fieldId);
+    return;
+  }
+  if (row.fieldIds.length >= MAX_ROW_COLS) {
+    const ri = canvasRows.indexOf(row);
+    insertFieldAsNewRow(fieldId, ri + 1);
+    return;
+  }
+  removeFieldFromRows(fieldId);
+  const row2 = canvasRows.find((r) => r.id === rowId);
+  if (!row2) {
+    canvasRows.push({ id: uid("row"), fieldIds: [fieldId] });
+    return;
+  }
+  const to = Math.max(0, Math.min(colIndex, row2.fieldIds.length));
+  row2.fieldIds.splice(to, 0, fieldId);
+}
+
+function mergeFieldOnto(fieldId, targetId) {
+  const targetRow = canvasRows.find((r) => r.fieldIds.includes(targetId));
+  if (!targetRow) return;
+  const col = targetRow.fieldIds.indexOf(targetId) + 1;
+  insertFieldInRow(fieldId, targetRow.id, col);
+}
+
+function splitRow(rowId) {
+  const row = canvasRows.find((r) => r.id === rowId);
+  if (!row || row.fieldIds.length < 2) return;
+  snapshotCanvas();
+  const index = canvasRows.indexOf(row);
+  const newRows = row.fieldIds.map((id) => ({ id: uid("row"), fieldIds: [id] }));
+  canvasRows.splice(index, 1, ...newRows);
+  renderWorkspace();
+}
+
+function resetCanvasColumns() {
+  if (!formFields.length) return;
+  snapshotCanvas();
+  const order = canvasRows.flatMap((r) => r.fieldIds);
+  canvasRows = order.map((id) => ({ id: uid("row"), fieldIds: [id] }));
+  renderWorkspace();
+}
+
+function pairCanvasColumns() {
+  if (!formFields.length) return;
+  snapshotCanvas();
+  const order = canvasRows.flatMap((r) => r.fieldIds);
+  const next = [];
+  let i = 0;
+  while (i < order.length) {
+    const a = order[i];
+    const b = order[i + 1];
+    if (b && !isHeaderType(a) && !isHeaderType(b)) {
+      next.push({ id: uid("row"), fieldIds: [a, b] });
+      i += 2;
+    } else {
+      next.push({ id: uid("row"), fieldIds: [a] });
+      i += 1;
+    }
+  }
+  canvasRows = next;
+  renderWorkspace();
+}
+
+function getColumnInner(html, version) {
+  const trimmed = (html || "").trim();
+  if (!trimmed) return "";
+  if (version === "v1") {
+    if (/form_box/.test(trimmed)) return extractBlockInner(trimmed, true);
+    return trimmed;
+  }
+  if (/<div class="row/.test(trimmed)) return extractBlockInner(trimmed, false);
+  return `<div class="col-md-12">\n${trimmed}\n</div>`;
+}
+
+function generateFromWorkspace() {
+  const outputEl = document.getElementById("output");
+  if (!outputEl) return;
+  if (!formFields.length) {
+    outputEl.value = "";
+    updatePhpStatus();
+    return;
+  }
+  const version = workspaceVersion;
+  let output = "";
+  canvasRows.forEach((row) => {
+    const fields = row.fieldIds.map(fieldById).filter(Boolean);
+    if (!fields.length) return;
+    if (fields.length === 1) {
+      const f = fields[0];
+      output += renderOneField(f.rawName, f.fieldName, f.type, f.options, version, f.required);
+      return;
+    }
+    const inners = fields.map((f) => {
+      const html = renderOneField(f.rawName, f.fieldName, f.type, f.options, version, f.required);
+      return { inner: getColumnInner(html, version) };
+    });
+    output += buildMergedHtml(inners, fields.length, version === "v1") + "\n";
+  });
+  outputEl.value = output.trim();
+  updatePhpStatus();
+}
+
+function onTypeListChange(e) {
+  const row = e.target.closest(".type-row");
+  if (!row) return;
+  const field = fieldById(row.getAttribute("data-field-id"));
+  if (!field) return;
+  if (e.target.matches("input[type='radio']")) {
+    snapshotCanvas();
+    field.type = e.target.value;
+    if (!needsOptions(field.type)) field.options = [];
+    renderWorkspace();
+    return;
+  }
+  if (e.target.matches('input[data-role="required"]')) {
+    snapshotCanvas();
+    field.required = e.target.checked;
+    renderCanvas();
+    generateFromWorkspace();
+  }
+}
+
+function onTypeListOptionsInput(e) {
+  if (!e.target.matches('textarea[data-role="options"]')) return;
+  const row = e.target.closest(".type-row");
+  if (!row) return;
+  const field = fieldById(row.getAttribute("data-field-id"));
+  if (!field) return;
+  field.options = e.target.value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  renderCanvas();
+  generateFromWorkspace();
+}
+
+function dropZoneFromEvent(e) {
+  const gap = e.target.closest(".canvas-gap, .canvas-col-gap");
+  if (gap) return gap;
+  const onto = e.target.closest(".canvas-field");
+  if (onto) return onto;
+  return e.target.closest("[data-drop]");
+}
+
+function onCanvasDragStart(e) {
+  if (e.target.closest(".canvas-split")) {
+    e.preventDefault();
+    return;
+  }
+  const fieldEl = e.target.closest(".canvas-field");
+  if (!fieldEl) return;
+  dragFieldId = fieldEl.getAttribute("data-field-id");
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", dragFieldId);
+  fieldEl.classList.add("is-dragging");
+  const canvas = document.getElementById("freeCanvas");
+  if (canvas) canvas.classList.add("is-dragging");
+}
+
+function onCanvasDragEnd() {
+  dragFieldId = null;
+  const canvas = document.getElementById("freeCanvas");
+  if (canvas) canvas.classList.remove("is-dragging");
+  document.querySelectorAll(".is-dragging, .drag-over").forEach((el) => {
+    el.classList.remove("is-dragging", "drag-over");
+  });
+}
+
+function onCanvasDragOver(e) {
+  if (!dragFieldId) return;
+  const zone = dropZoneFromEvent(e);
+  if (!zone) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  document.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
+  zone.classList.add("drag-over");
+}
+
+function onCanvasDragLeave(e) {
+  const zone = e.target.closest("[data-drop]");
+  if (zone && !zone.contains(e.relatedTarget)) zone.classList.remove("drag-over");
+}
+
+function onCanvasDrop(e) {
+  const zone = dropZoneFromEvent(e);
+  if (!zone || !dragFieldId) return;
+  e.preventDefault();
+  const fieldId = dragFieldId;
+  const kind = zone.getAttribute("data-drop");
+  let changed = false;
+  if (kind === "row") {
+    snapshotCanvas();
+    insertFieldAsNewRow(fieldId, parseInt(zone.getAttribute("data-index"), 10) || 0);
+    changed = true;
+  } else if (kind === "col") {
+    snapshotCanvas();
+    insertFieldInRow(fieldId, zone.getAttribute("data-row-id"), parseInt(zone.getAttribute("data-index"), 10) || 0);
+    changed = true;
+  } else if (kind === "onto") {
+    const targetId = zone.getAttribute("data-field-id");
+    if (targetId && targetId !== fieldId) {
+      snapshotCanvas();
+      mergeFieldOnto(fieldId, targetId);
+      changed = true;
+    }
+  }
+  onCanvasDragEnd();
+  if (changed) renderWorkspace();
+}
+
+function onCanvasClick(e) {
+  const split = e.target.closest(".canvas-split");
+  if (!split) return;
+  splitRow(split.getAttribute("data-row-id"));
+}
+
+function initWorkspaceUi() {
+  const names = document.getElementById("fieldNames");
+  if (names) {
+    names.addEventListener("input", () => {
+      clearTimeout(nameSyncTimer);
+      nameSyncTimer = setTimeout(syncFromNameInput, 120);
+    });
+    names.addEventListener("change", syncFromNameInput);
+    names.addEventListener("paste", () => setTimeout(syncFromNameInput, 0));
+  }
+  const types = document.getElementById("fieldTypesList");
+  if (types) {
+    types.addEventListener("change", onTypeListChange);
+    types.addEventListener("input", onTypeListOptionsInput);
+  }
+  const canvas = document.getElementById("freeCanvas");
+  if (canvas) {
+    canvas.addEventListener("dragstart", onCanvasDragStart);
+    canvas.addEventListener("dragend", onCanvasDragEnd);
+    canvas.addEventListener("dragover", onCanvasDragOver);
+    canvas.addEventListener("dragleave", onCanvasDragLeave);
+    canvas.addEventListener("drop", onCanvasDrop);
+    canvas.addEventListener("click", onCanvasClick);
+  }
+  const output = document.getElementById("output");
+  if (output) {
+    output.addEventListener("input", () => {
+      clearTimeout(statusTimer);
+      statusTimer = setTimeout(updatePhpStatus, 180);
+    });
+  }
+  const statusToggle = document.getElementById("phpStatusToggle");
+  if (statusToggle) {
+    statusToggle.addEventListener("click", togglePhpStatusList);
+  }
+  syncVersionButtons();
+  renderWorkspace();
 }
 
 function copyOutput() {
   const output = document.getElementById("output");
   const copyBtn = document.getElementById("copyBtn");
+  const copyBtnText = document.getElementById("copyBtnText");
   const text = output.value;
   if (!text.trim()) return alert("Nothing to copy. Generate output first.");
+  const showCopied = () => {
+    if (copyBtnText) copyBtnText.textContent = "Copied!";
+    else copyBtn.textContent = "Copied!";
+    copyBtn.classList.add("copied");
+    setTimeout(() => {
+      if (copyBtnText) copyBtnText.textContent = "Copy";
+      else copyBtn.textContent = "Copy";
+      copyBtn.classList.remove("copied");
+    }, 1500);
+  };
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(() => {
-      copyBtn.textContent = "Copied!";
-      copyBtn.classList.add("copied");
-      setTimeout(() => {
-        copyBtn.textContent = "Copy";
-        copyBtn.classList.remove("copied");
-      }, 1500);
-    }).catch(() => fallbackCopy(text));
+    navigator.clipboard.writeText(text).then(showCopied).catch(() => fallbackCopy(text));
   } else {
     fallbackCopy(text);
   }
@@ -501,12 +700,543 @@ function clearOutput() {
   const output = document.getElementById("output");
   output.value = "";
   outputHistory = [];
+  updatePhpStatus();
   output.focus();
 }
 
 let outputHistory = [];
-let mergeState = null;
-let selectedMergeCols = 2;
+
+const VOID_HTML_TAGS = {
+  area: 1, base: 1, br: 1, col: 1, embed: 1, hr: 1, img: 1, input: 1,
+  link: 1, meta: 1, param: 1, source: 1, track: 1, wbr: 1
+};
+
+function checkPhpStructure() {
+  updatePhpStatus({ expand: true });
+}
+
+function togglePhpStatusList() {
+  const list = document.getElementById("phpStatusList");
+  const btn = document.getElementById("phpStatusToggle");
+  if (!list || !btn) return;
+  const open = list.hidden;
+  list.hidden = !open;
+  btn.setAttribute("aria-expanded", String(open));
+}
+
+function updatePhpStatus(opts) {
+  const outputEl = document.getElementById("output");
+  const box = document.getElementById("phpStatus");
+  const labelEl = document.getElementById("phpStatusLabel");
+  const metaEl = document.getElementById("phpStatusMeta");
+  const listEl = document.getElementById("phpStatusList");
+  const toggle = document.getElementById("phpStatusToggle");
+  if (!outputEl || !box || !labelEl || !metaEl || !listEl) return;
+
+  const markup = outputEl.value || "";
+  const result = analyzePhpStructure(markup);
+  const state = result.state;
+  const issues = result.issues;
+
+  box.classList.remove("is-idle", "is-ok", "is-warning", "is-error");
+  box.classList.add("is-" + state);
+  box.setAttribute("data-state", state);
+
+  if (state === "idle") {
+    labelEl.textContent = "Waiting";
+    metaEl.textContent = formFields.length
+      ? "Canvas has fields, but markup is empty"
+      : "Markup will be checked as you build";
+  } else if (state === "ok") {
+    labelEl.textContent = "Good to go";
+    metaEl.textContent = "Divs, names, and layout look correct";
+  } else if (state === "warning") {
+    const n = issues.length;
+    labelEl.textContent = "Warning";
+    metaEl.textContent = n === 1 ? "1 warning to review" : n + " warnings to review";
+  } else {
+    const errors = issues.filter((i) => i.level === "error").length;
+    const warns = issues.filter((i) => i.level === "warning").length;
+    labelEl.textContent = errors ? "Error" : "Problem";
+    const parts = [];
+    if (errors) parts.push(errors === 1 ? "1 error" : errors + " errors");
+    if (warns) parts.push(warns === 1 ? "1 warning" : warns + " warnings");
+    metaEl.textContent = parts.join(", ");
+  }
+
+  if (!issues.length && state === "ok") {
+    listEl.innerHTML = '<li class="is-ok">No duplicates, balanced tags, and layout wrappers look correct.</li>';
+  } else if (!issues.length) {
+    listEl.innerHTML = "";
+  } else {
+    listEl.innerHTML = issues.map((issue) =>
+      `<li class="is-${issue.level}">${escapeHtml(issue.message)}</li>`
+    ).join("");
+  }
+
+  if (opts && opts.expand && issues.length) {
+    listEl.hidden = false;
+    if (toggle) toggle.setAttribute("aria-expanded", "true");
+  } else if (state === "idle" || state === "ok") {
+    listEl.hidden = true;
+    if (toggle) toggle.setAttribute("aria-expanded", "false");
+  } else {
+    listEl.hidden = false;
+    if (toggle) toggle.setAttribute("aria-expanded", "true");
+  }
+}
+
+function analyzePhpStructure(markup) {
+  const issues = [];
+  const trimmed = (markup || "").trim();
+  if (!trimmed) {
+    if (formFields.length) {
+      issues.push({
+        level: "error",
+        message: "Markup is empty but the canvas still has " + formFields.length + " field" + (formFields.length === 1 ? "" : "s") + "."
+      });
+      return { state: "error", issues };
+    }
+    return { state: "idle", issues };
+  }
+
+  checkPhpBlocks(trimmed, issues);
+  checkHtmlTags(stripPhpBlocks(trimmed), issues);
+  checkDuplicates(trimmed, issues);
+  checkLayoutStructure(stripPhpBlocks(trimmed), issues);
+  checkCanvasAlignment(trimmed, issues);
+  checkOptionPlaceholders(trimmed, issues);
+
+  const errors = issues.filter((i) => i.level === "error");
+  const state = errors.length ? "error" : (issues.length ? "warning" : "ok");
+  return { state, issues };
+}
+
+function stripPhpBlocks(markup) {
+  return (markup || "").replace(/<\?php[\s\S]*?\?>/g, "");
+}
+
+function checkPhpBlocks(markup, issues) {
+  const leftover = markup.replace(/<\?php[\s\S]*?\?>/g, "");
+  const danglingOpen = (leftover.match(/<\?php/g) || []).length;
+  const danglingClose = (leftover.match(/\?>/g) || []).length;
+  if (danglingOpen) {
+    issues.push({
+      level: "error",
+      message: danglingOpen === 1
+        ? "Unclosed PHP block — a <?php is missing its ?>."
+        : danglingOpen + " unclosed PHP blocks are missing ?>."
+    });
+  }
+  if (danglingClose) {
+    issues.push({
+      level: "error",
+      message: "Extra PHP closer — ?> found without a matching <?php."
+    });
+  }
+}
+
+function checkHtmlTags(html, issues) {
+  const re = /<!--[\s\S]*?-->|<\/?([a-zA-Z][a-zA-Z0-9:-]*)\b[^>]*>/g;
+  const stack = [];
+  let extraClose = 0;
+  let wrongClose = 0;
+  let m;
+  while ((m = re.exec(html))) {
+    if (m[0].startsWith("<!--")) continue;
+    const name = m[1].toLowerCase();
+    const isClose = m[0].startsWith("</");
+    const selfClosing = !!VOID_HTML_TAGS[name] || /\/\s*>$/.test(m[0]);
+    if (selfClosing && !isClose) continue;
+    if (isClose) {
+      if (!stack.length) {
+        extraClose += 1;
+        continue;
+      }
+      const last = stack.pop();
+      if (last !== name) {
+        wrongClose += 1;
+        issues.push({
+          level: "error",
+          message: "Wrong closing tag: expected </" + last + "> but found </" + name + ">."
+        });
+      }
+    } else {
+      stack.push(name);
+    }
+  }
+  if (extraClose) {
+    issues.push({
+      level: "error",
+      message: extraClose === 1
+        ? "Extra closing tag with no matching opening tag."
+        : extraClose + " extra closing tags with no matching opening tags."
+    });
+  }
+  if (stack.length) {
+    const counts = {};
+    stack.forEach((name) => { counts[name] = (counts[name] || 0) + 1; });
+    Object.keys(counts).forEach((name) => {
+      issues.push({
+        level: "error",
+        message: counts[name] === 1
+          ? "Missing closing </" + name + ">."
+          : counts[name] + " unclosed <" + name + "> tags."
+      });
+    });
+  }
+}
+
+function collectQuoted(markup, regex) {
+  const out = [];
+  let m;
+  const re = new RegExp(regex.source, regex.flags.includes("g") ? regex.flags : regex.flags + "g");
+  while ((m = re.exec(markup))) out.push(m[1]);
+  return out;
+}
+
+function checkDuplicates(markup, issues) {
+  const names = [];
+  eachInputCall(markup, (method, args) => {
+    if (method === "label") return;
+    const name = pickCallFieldName(method, args);
+    if (name) names.push(name);
+  });
+  collectQuoted(markup, /<input\b[^>]*\bname="([^"]+)"/i).forEach((n) => names.push(n));
+
+  const nameCounts = {};
+  names.forEach((n) => {
+    if (!n) return;
+    nameCounts[n] = (nameCounts[n] || 0) + 1;
+  });
+  Object.keys(nameCounts).forEach((n) => {
+    if (nameCounts[n] > 1) {
+      issues.push({
+        level: "error",
+        message: "Duplicate field name `" + n + "` appears " + nameCounts[n] + " times."
+      });
+    }
+  });
+
+  const labels = [];
+  eachInputCall(markup, (method, args) => {
+    if (method !== "label") return;
+    const label = unquotePhp(args[0] || "");
+    if (label) labels.push(label);
+  });
+  const labelCounts = {};
+  labels.forEach((n) => {
+    const key = n.replace(/<[^>]+>/g, "").trim();
+    if (!key) return;
+    labelCounts[key] = (labelCounts[key] || 0) + 1;
+  });
+  Object.keys(labelCounts).forEach((n) => {
+    if (labelCounts[n] > 1) {
+      issues.push({
+        level: "warning",
+        message: "Duplicate label `" + n + "` appears " + labelCounts[n] + " times."
+      });
+    }
+  });
+
+  const rawCounts = {};
+  formFields.forEach((f) => {
+    const key = (f.rawName || "").trim().toLowerCase();
+    if (!key) return;
+    rawCounts[key] = (rawCounts[key] || 0) + 1;
+  });
+  Object.keys(rawCounts).forEach((key) => {
+    if (rawCounts[key] > 1) {
+      issues.push({
+        level: "warning",
+        message: "Duplicate canvas label `" + key + "` — generated names were uniquified, but the labels repeat."
+      });
+    }
+  });
+}
+
+function eachInputCall(markup, fn) {
+  const startRe = /\$input->([a-zA-Z]+)\s*\(/g;
+  let m;
+  while ((m = startRe.exec(markup))) {
+    const method = m[1];
+    const open = m.index + m[0].length;
+    let i = open;
+    let depth = 1;
+    let quote = "";
+    while (i < markup.length && depth) {
+      const ch = markup[i];
+      if (quote) {
+        if (ch === "\\") {
+          i += 2;
+          continue;
+        }
+        if (ch === quote) quote = "";
+        i += 1;
+        continue;
+      }
+      if (ch === "'" || ch === "\"") {
+        quote = ch;
+        i += 1;
+        continue;
+      }
+      if (ch === "(") depth += 1;
+      else if (ch === ")") depth -= 1;
+      i += 1;
+    }
+    fn(method, splitPhpArgs(markup.slice(open, i - 1)));
+  }
+}
+
+function splitPhpArgs(inner) {
+  const args = [];
+  let cur = "";
+  let depth = 0;
+  let quote = "";
+  for (let i = 0; i < inner.length; i += 1) {
+    const ch = inner[i];
+    if (quote) {
+      cur += ch;
+      if (ch === "\\" && i + 1 < inner.length) {
+        cur += inner[i + 1];
+        i += 1;
+        continue;
+      }
+      if (ch === quote) quote = "";
+      continue;
+    }
+    if (ch === "'" || ch === "\"") {
+      quote = ch;
+      cur += ch;
+      continue;
+    }
+    if (ch === "(") {
+      depth += 1;
+      cur += ch;
+      continue;
+    }
+    if (ch === ")") {
+      depth -= 1;
+      cur += ch;
+      continue;
+    }
+    if (ch === "," && depth === 0) {
+      args.push(cur.trim());
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) args.push(cur.trim());
+  return args;
+}
+
+function unquotePhp(value) {
+  const s = String(value || "").trim();
+  const m = s.match(/^'(.*)'$/) || s.match(/^"(.*)"$/);
+  return m ? m[1] : s;
+}
+
+function pickCallFieldName(method, args) {
+  const arg = (i) => unquotePhp(args[i] || "");
+  if (method === "amount" || method === "time" || method === "files") return arg(1);
+  if (method === "email" || method === "phoneInput") return arg(2);
+  const third = arg(2);
+  if (third && /^[A-Za-z_][A-Za-z0-9_]*$/.test(third)) return third;
+  return arg(0);
+}
+
+function parseDivTree(html) {
+  const tokens = [];
+  const re = /<\/?div\b([^>]*)>/gi;
+  let m;
+  while ((m = re.exec(html))) {
+    const attrs = m[1] || "";
+    const classMatch = attrs.match(/class\s*=\s*"([^"]*)"/i);
+    tokens.push({
+      close: m[0].slice(0, 2) === "</",
+      className: classMatch ? classMatch[1] : ""
+    });
+  }
+  function build(start, end) {
+    const nodes = [];
+    let i = start;
+    while (i < end) {
+      const token = tokens[i];
+      if (token.close) break;
+      let depth = 1;
+      let j = i + 1;
+      while (j < end && depth) {
+        if (tokens[j].close) depth -= 1;
+        else depth += 1;
+        if (depth) j += 1;
+      }
+      const children = depth === 0 ? build(i + 1, j) : [];
+      nodes.push({ className: token.className, children });
+      i = depth === 0 ? j + 1 : end;
+    }
+    return nodes;
+  }
+  return build(0, tokens.length);
+}
+
+function classListHas(className, token) {
+  return new RegExp("(^|\\s)" + token + "(\\s|$)").test(className || "");
+}
+
+function checkLayoutStructure(html, issues) {
+  const version = workspaceVersion;
+  if (version === "v2" && /\bform_box\b/.test(html)) {
+    issues.push({
+      level: "warning",
+      message: "Version 1 `form_box` wrappers found in Bootstrap output."
+    });
+  }
+  if (version === "v1" && /\brow\b/.test(html) && /\bg-3\b/.test(html)) {
+    issues.push({
+      level: "warning",
+      message: "Bootstrap `row g-3` wrappers found in Version 1 output."
+    });
+  }
+
+  const tree = parseDivTree(html);
+  walkLayoutNodes(tree, issues, version, false);
+}
+
+function walkLayoutNodes(nodes, issues, version, insideRow, insideFormBox) {
+  (nodes || []).forEach((node) => {
+    const cls = node.className || "";
+    const isRow = classListHas(cls, "row");
+    const isFormBox = classListHas(cls, "form_box") && !/form_box_col/.test(cls);
+    const colMatch = cls.match(/\bcol-md-(\d+)\b/);
+    const v1ColMatch = cls.match(/\bform_box_col(\d+)\b/);
+
+    if (colMatch && !insideRow && version === "v2") {
+      issues.push({
+        level: "error",
+        message: "Wrong div: `col-md-" + colMatch[1] + "` is outside a Bootstrap row."
+      });
+    }
+    if (v1ColMatch && !insideFormBox) {
+      issues.push({
+        level: "error",
+        message: "Wrong div: `form_box_col" + v1ColMatch[1] + "` is outside a `form_box`."
+      });
+    }
+
+    if (isRow) {
+      const cols = node.children.filter((child) => /\bcol-md-\d+\b/.test(child.className || ""));
+      const widths = cols.map((child) => {
+        const hit = (child.className || "").match(/\bcol-md-(\d+)\b/);
+        return hit ? parseInt(hit[1], 10) : 0;
+      });
+      const sum = widths.reduce((a, b) => a + b, 0);
+      if (cols.length >= 2 && widths.indexOf(12) !== -1) {
+        issues.push({
+          level: "error",
+          message: "Off layout: `col-md-12` cannot share a row with other columns."
+        });
+      } else if (cols.length >= 2 && sum !== 12) {
+        issues.push({
+          level: "warning",
+          message: "Off layout: a Bootstrap row’s columns add up to " + sum + "/12 (" + widths.map((n) => "col-md-" + n).join(" + ") + ")."
+        });
+      }
+      if (version === "v1") {
+        issues.push({
+          level: "warning",
+          message: "A Bootstrap row wrapper is inside Version 1 markup."
+        });
+      }
+      walkLayoutNodes(node.children, issues, version, true, insideFormBox);
+      return;
+    }
+
+    if (isFormBox) {
+      const colWrap = node.children.find((child) => /\bform_box_col\d+\b/.test(child.className || ""));
+      if (!colWrap) {
+        issues.push({
+          level: "error",
+          message: "Wrong div: a `form_box` is missing its `form_box_col` wrapper."
+        });
+      } else {
+        const expected = parseInt((colWrap.className.match(/\bform_box_col(\d+)\b/) || [])[1], 10);
+        const groups = countGroups(colWrap);
+        if (expected && groups && groups !== expected) {
+          issues.push({
+            level: "warning",
+            message: "Off layout: `form_box_col" + expected + "` holds " + groups + " field group" + (groups === 1 ? "" : "s") + "."
+          });
+        }
+      }
+      walkLayoutNodes(node.children, issues, version, insideRow, true);
+      return;
+    }
+
+    if (v1ColMatch && version === "v2") {
+      issues.push({
+        level: "warning",
+        message: "Version 1 column div `form_box_col" + v1ColMatch[1] + "` found in Bootstrap output."
+      });
+    }
+
+    walkLayoutNodes(node.children, issues, version, insideRow, insideFormBox);
+  });
+}
+
+function countGroups(node) {
+  if (!node) return 0;
+  let n = 0;
+  (node.children || []).forEach((child) => {
+    if (classListHas(child.className, "group")) n += 1;
+    n += countGroups(child);
+  });
+  return n;
+}
+
+function checkCanvasAlignment(markup, issues) {
+  canvasRows.forEach((row, index) => {
+    const fields = row.fieldIds.map(fieldById).filter(Boolean);
+    const headers = fields.filter((f) => f.type === "header");
+    if (headers.length && fields.length > 1) {
+      issues.push({
+        level: "error",
+        message: "Off layout: a header is sharing row " + (index + 1) + " with other fields. Headers should be full width."
+      });
+    }
+  });
+
+  formFields.forEach((f) => {
+    const needle = f.fieldName;
+    if (!needle) return;
+    const inPhp = markup.indexOf("'" + needle + "'") !== -1 || markup.indexOf('name="' + needle + '"') !== -1;
+    if (!inPhp) {
+      issues.push({
+        level: "warning",
+        message: "Canvas field `" + needle + "` is missing from the PHP markup."
+      });
+    }
+  });
+}
+
+function checkOptionPlaceholders(markup, issues) {
+  formFields.forEach((f) => {
+    if (!needsOptions(f.type)) return;
+    if (!(f.options || []).length) {
+      issues.push({
+        level: "warning",
+        message: (f.type === "select" ? "Select" : f.type === "checkbox" ? "Checkbox" : "Radio") +
+          " `" + f.rawName + "` is using placeholder options. Add real choices."
+      });
+    }
+  });
+  if (/\barray\s*\(\s*\)/.test(markup)) {
+    issues.push({
+      level: "warning",
+      message: "An empty PHP array() was found — a radio, checkbox, or select has no options."
+    });
+  }
+}
 
 /** Extract the inner column/group content from a single block so we can merge without changing field names. */
 function extractBlockInner(chunk, isV1) {
@@ -526,24 +1256,7 @@ function extractBlockInner(chunk, isV1) {
   return lines.slice(1, -1).join("\n").trim();
 }
 
-function parseSelectionToBlocks(text) {
-  const chunks = text.split(/\n\s*\n/).filter(c => c.trim());
-  const blocks = [];
-  let isV1 = false;
-  for (const chunk of chunks) {
-    const trimmed = chunk.trim();
-    if (trimmed.indexOf("<div class=\"form_box\">") === 0 || trimmed.indexOf('<div class="form_box">') === 0) {
-      isV1 = true;
-    }
-    if (trimmed.indexOf("<div class=\"form_box\">") !== 0 && trimmed.indexOf('<div class="form_box">') !== 0 &&
-        trimmed.indexOf("<div class=\"row g-3 mb-3\">") !== 0 && trimmed.indexOf('<div class="row g-3 mb-3">') !== 0) {
-      continue;
-    }
-    const inner = extractBlockInner(chunk, trimmed.indexOf("form_box") !== -1);
-    if (inner) blocks.push({ inner });
-  }
-  return { blocks, isV1 };
-}
+
 
 function buildMergedHtml(blocks, numCols, isV1) {
   const n = Math.min(numCols, blocks.length);
@@ -570,131 +1283,16 @@ function buildMergedHtml(blocks, numCols, isV1) {
   return html;
 }
 
-function openMergeModal() {
-  const output = document.getElementById("output");
-  const start = output.selectionStart;
-  const end = output.selectionEnd;
-  const selectedText = (start < end) ? output.value.slice(start, end) : output.value;
-  const { blocks, isV1 } = parseSelectionToBlocks(selectedText);
-  if (blocks.length < 2 || blocks.length > 3) {
-    alert("Select 2 or 3 field blocks in the output to merge. Highlight the HTML for 2 or 3 fields, then click Merge.");
-    return;
-  }
-  mergeState = { selectionStart: start, selectionEnd: end, blocks, isV1 };
-  document.getElementById("mergeBlockCount").textContent = blocks.length;
-  selectedMergeCols = blocks.length;
-  const choiceBtns = document.querySelectorAll(".merge-modal-choices button");
-  choiceBtns.forEach((btn) => {
-    const cols = parseInt(btn.getAttribute("data-cols"), 10);
-    const allowed = cols <= blocks.length;
-    btn.disabled = !allowed;
-    btn.style.opacity = allowed ? "1" : "0.5";
-    btn.classList.toggle("selected", cols === selectedMergeCols);
-    btn.onclick = function() {
-      if (!allowed) return;
-      choiceBtns.forEach(b => b.classList.remove("selected"));
-      btn.classList.add("selected");
-      selectedMergeCols = cols;
-    };
-  });
-  document.getElementById("mergeModal").classList.add("visible");
-  document.getElementById("mergeModal").setAttribute("aria-hidden", "false");
-}
 
-function closeMergeModal() {
-  document.getElementById("mergeModal").classList.remove("visible");
-  document.getElementById("mergeModal").setAttribute("aria-hidden", "true");
-  mergeState = null;
-}
 
-let fileGuideEscapeHandler = null;
-function openFileGuideModal() {
-  const el = document.getElementById("fileGuideModal");
-  el.classList.add("visible");
-  el.setAttribute("aria-hidden", "false");
-  fileGuideEscapeHandler = function(e) {
-    if (e.key === "Escape") closeFileGuideModal();
-  };
-  document.addEventListener("keydown", fileGuideEscapeHandler);
-}
-function closeFileGuideModal() {
-  if (fileGuideEscapeHandler) {
-    document.removeEventListener("keydown", fileGuideEscapeHandler);
-    fileGuideEscapeHandler = null;
-  }
-  document.getElementById("fileGuideModal").classList.remove("visible");
-  document.getElementById("fileGuideModal").setAttribute("aria-hidden", "true");
-}
 
-function applyMerge() {
-  if (!mergeState) return closeMergeModal();
-  const output = document.getElementById("output");
-  const cols = selectedMergeCols;
-  const merged = buildMergedHtml(mergeState.blocks, cols, mergeState.isV1);
-  outputHistory.push(output.value);
-  const scrollTop = output.scrollTop;
-  const before = output.value.slice(0, mergeState.selectionStart);
-  const after = output.value.slice(mergeState.selectionEnd);
-  output.value = before + merged + after;
-  closeMergeModal();
-  output.focus();
-  output.setSelectionRange(mergeState.selectionStart, mergeState.selectionStart + merged.length);
-  output.scrollTop = scrollTop;
-}
 
-function undoMerge() {
-  if (!outputHistory.length) {
-    alert("Nothing to undo.");
-    return;
-  }
-  const output = document.getElementById("output");
-  output.value = outputHistory.pop();
-  output.focus();
-}
 
-/** Mark selected field block(s) as required. V1: label second param becomes '*'. Modern: last empty string param in input calls becomes 'required'. */
-function markSelectionRequired() {
-  const output = document.getElementById("output");
-  const start = output.selectionStart;
-  const end = output.selectionEnd;
-  const text = output.value;
-  const selectedText = (start < end) ? text.slice(start, end) : text;
-  const chunks = selectedText.split(/\n\s*\n/).filter(c => c.trim());
-  let anyFieldBlock = false;
-  const blocks = [];
-  for (const chunk of chunks) {
-    const trimmed = chunk.trim();
-    const isV1 = trimmed.indexOf("<div class=\"form_box\">") === 0 || trimmed.indexOf('<div class="form_box">') === 0;
-    const isModern = trimmed.indexOf("<div class=\"row g-3 mb-3\">") === 0 || trimmed.indexOf('<div class="row g-3 mb-3">') === 0;
-    if (!isV1 && !isModern) {
-      blocks.push({ transformed: chunk });
-      continue;
-    }
-    anyFieldBlock = true;
-    let transformed = chunk;
-    if (isV1) {
-      transformed = transformed.replace(/\$input->label\s*\(\s*([^)]+),\s*''\s*\)/g, "$input->label($1, '*')");
-    } else {
-      transformed = transformed.split("\n").map((line) => {
-        if (line.indexOf("$input->") === -1 || line.indexOf("->label(") !== -1) return line;
-        return line.replace(/,(\s*)''(\s*\);\s*\?>)/g, ",$1'required'$2");
-      }).join("\n");
-    }
-    blocks.push({ transformed });
-  }
-  if (!anyFieldBlock) {
-    alert("Select one or more field blocks in the output (Version 1 or Modern), then click Required.");
-    return;
-  }
-  const result = blocks.map(b => b.transformed).join("\n\n");
-  if (result === selectedText) return;
-  outputHistory.push(text);
-  const scrollTop = output.scrollTop;
-  output.value = text.slice(0, start) + result + text.slice(end);
-  output.focus();
-  output.setSelectionRange(start, start + result.length);
-  output.scrollTop = scrollTop;
-}
+
+
+
+
+
 
 function escPhp(s) {
   return (s + "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -735,7 +1333,7 @@ function renderOneField(rawName, fieldName, type, optionsArray, version, require
 `
       : `<div class="row g-3 mb-3">
 <div class="col-md-12">
-    <?php $input->email('${r}', '', '${f}', '', '', '', '${f}'); ?>
+    <?php $input->email('${r}', '', '${f}', '${reqAttr}', '', '', '${f}'); ?>
 </div>
 </div>
 
@@ -830,7 +1428,7 @@ function renderOneField(rawName, fieldName, type, optionsArray, version, require
 `
         : `<div class="row g-3 mb-3">
 <div class="col-md-12">
-    <?php $input->email('${r}', '', '${f}', '', '', '', '${f}'); ?>
+    <?php $input->email('${r}', '', '${f}', '${reqAttr}', '', '', '${f}'); ?>
 </div>
 </div>
 
@@ -923,7 +1521,7 @@ function renderOneField(rawName, fieldName, type, optionsArray, version, require
 
 `;
   } else if (type === "radio") {
-    const optionsStr = opts || formatOptionsForPhp(["Option 1", "Option 2"]);
+    const optionsStr = opts || formatOptionsForPhp(["Option 1", "Option 2", "Option 3"]);
     out = version === "v1"
       ? `<div class="form_box">
 <div class="form_box_col1">
@@ -941,14 +1539,14 @@ function renderOneField(rawName, fieldName, type, optionsArray, version, require
 <div class="col-md-12">
     <?php
         $input->label('${r}', '');
-        $input->radio('${f}', array(${optionsStr}), '${f}', '', '3');
+        $input->radio('${f}', array(${optionsStr}), '${f}', '${reqAttr}', '3');
     ?>
 </div>
 </div>
 
 `;
   } else if (type === "checkbox") {
-    const optionsStr = opts || formatOptionsForPhp(["Option 1", "Option 2"]);
+    const optionsStr = opts || formatOptionsForPhp(["Option 1", "Option 2", "Option 3"]);
     out = version === "v1"
       ? `<div class="form_box">
 <div class="form_box_col1">
@@ -966,7 +1564,7 @@ function renderOneField(rawName, fieldName, type, optionsArray, version, require
 <div class="col-md-12 group" data-limit="7">
     <?php
         $input->label('${r}', '');
-        $input->chkboxVal('${f}', array(${optionsStr}), '${f}', '', '3');
+        $input->chkboxVal('${f}', array(${optionsStr}), '${f}', '${reqAttr}', '3');
     ?>
 </div>
 </div>
@@ -1085,7 +1683,6 @@ function renderOneField(rawName, fieldName, type, optionsArray, version, require
 
 `;
   } else if (type === "header") {
-    // Header block: just a visual header + hidden field to mark section
     if (version === "v1") {
       return `<p class="fieldheader">${rawName}</p>
 <input type="hidden" name="${fieldName}" value=":" />
@@ -1100,393 +1697,18 @@ function renderOneField(rawName, fieldName, type, optionsArray, version, require
   return out;
 }
 
-/**
- * Radio/checkbox options: one option per line (newline separates).
- * Spaces and commas on the same line stay in that option.
- * Option 1\nOption 2\nOption 3 → 3 options.
- * Option 1 Option 2\nOption 3 → 2 options (first line = one option).
- */
-function getRadioOptions() {
-  const raw = document.getElementById("radioOptions").value;
-  const quoted = [];
-  const placeholder = (i) => "\u0000Q" + i + "\u0000";
-  let str = raw.replace(/"((?:[^"\\]|\\.)*)"/g, (_, content) => {
-    quoted.push(content.replace(/\\"/g, '"'));
-    return placeholder(quoted.length - 1);
-  });
-  const tokens = str
-    .split(/[\r\n]+/)
-    .map(s => s.trim())
-    .filter(Boolean);
-  const options = tokens.map(opt => {
-    const m = opt.match(/^\u0000Q(\d+)\u0000$/);
-    return m ? quoted[parseInt(m[1], 10)] : opt;
-  });
-  return options
-    .map(opt => `"${(opt + "").replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
-    .join(", ");
-}   
+   
 
 function generate(version) {
-  let output = "";
-  if (parsedFields.length > 0) {
-    const expanded = expandParsedFieldsForOther(parsedFields);
-    const uniquePairs = makeUniqueFieldNames(expanded.map((f) => f.rawName));
-    expanded.forEach((f, i) => {
-      output += renderOneField(f.rawName, uniquePairs[i].fieldName, f.type, f.options || null, version, !!f.required);
-    });
-    outputHistory = [];
-    document.getElementById("output").value = output.trim();
-    return;
+  if (version) {
+    workspaceVersion = version === "v1" ? "v1" : "v2";
+    syncVersionButtons();
   }
-  const type = document.getElementById("fieldType").value;
-  const lines = getFieldLines();
-  if (!lines.length) return alert("Please enter at least one field name");
-  const uniquePairs = makeUniqueFieldNames(lines);
-  uniquePairs.forEach(({ rawName, fieldName }) => {
-
-    if (type === "text") {
-      const isPhone = isPhoneContactField(rawName);
-      const isEmail = isEmailField(rawName);
-      const isTime = isTimeField(rawName);
-      const isDate = isDateField(rawName);
-      if (isPhone) {
-        output += version === "v1"
-          ? `<div class="form_box">
-<div class="form_box_col1">
-    <div class="group">
-        <?php
-            $input->label('${rawName}', '');
-            $input->phoneInput('${rawName}', 'form_field', '${fieldName}', 'placeholder="Enter ${rawName.toLowerCase()} here" onkeypress="return isNumberKey(evt)"');
-        ?>
-    </div>
-</div>
-</div>
-
-`
-          : `<div class="row g-3 mb-3">
-<div class="col-md-12">
-    <?php $input->phoneInput('${rawName}', '', '${fieldName}', ''); ?>
-</div>
-</div>
-
-`;
-      } else if (isEmail) {
-        output += version === "v1"
-          ? `<div class="form_box">
-<div class="form_box_col1">
-    <div class="group">
-        <?php
-            $input->label('${rawName}', '');
-            $input->email('${rawName}', 'form_field', '${fieldName}', 'placeholder="Enter ${rawName.toLowerCase()} here"', '', '', '${fieldName}');
-        ?>
-    </div>
-</div>
-</div>
-
-`
-          : `<div class="row g-3 mb-3">
-<div class="col-md-12">
-    <?php $input->email('${rawName}', '', '${fieldName}', '', '', '', '${fieldName}'); ?>
-</div>
-</div>
-
-`;
-      } else if (isTime) {
-        output += version === "v1"
-          ? `<div class="form_box">
-<div class="form_box_col1">
-    <div class="group">
-        <?php
-            $input->label('${rawName}', '');
-            $input->fields('${fieldName}', 'form_field', '${fieldName}', '');
-        ?>
-    </div>
-</div>
-</div>
-
-`
-          : `<div class="row g-3 mb-3">
-<div class="col-md-4">
-    <?php $input->time('${rawName}', '${fieldName}', ''); ?>
-</div>
-</div>
-
-`;
-      } else if (isDate) {
-        output += version === "v1"
-          ? `<div class="form_box">
-<div class="form_box_col2">
-    <div class="group">
-        <?php
-            $input->label('${rawName}', '*');
-            $input->fields('${fieldName}', 'form_field Date', '${fieldName}', 'placeholder="Enter date here"');
-        ?>
-    </div>
-</div>
-</div>
-
-`
-          : `<div class="row g-3 mb-3">
-<div class="col-md-4">
-    <?php $input->datepicker('${fieldName}', '${fieldName}', '', 'Date1 DisableFuture', '', '${rawName}'); ?>
-</div>
-</div>
-
-`;
-      } else {
-        output += version === "v1"
-          ? `<div class="form_box">
-<div class="form_box_col1">
-    <div class="group">
-        <?php
-            $input->label('${rawName}', '');
-            $input->fields('${fieldName}', 'form_field', '${fieldName}', 'placeholder="Enter ${rawName.toLowerCase()} here"');
-        ?>
-    </div>
-</div>
-</div>
-
-`
-          : `<div class="row g-3 mb-3">
-<div class="col-md-12">
-    <?php $input->fields('${fieldName}', 'form-control', '${fieldName}', ''); ?>
-</div>
-</div>
-
-`;
-      }
-    }
-
-    if (type === "textarea") {
-      const rawLower = (rawName || "").toLowerCase();
-      output += version === "v1"
-        ? `<div class="form_box">
-<div class="form_box_col1">
-  <div class="group">
-     <?php
-        $input->label('${rawName}', '');
-        $input->textarea('${fieldName}', 'text form_field', '${fieldName}', 'placeholder="Enter your ${rawLower} here"');
-     ?>
-  </div>
-</div>
-</div>
-
-`
-        : `<div class="row g-3 mb-3">
-<div class="col-md-12">
-    <?php
-        $input->textarea('${fieldName}', 'form-control', '${fieldName}', 'style="height: 100px;"', '', ' ', '${rawName}');
-    ?>
-</div>
-</div>
-
-`;
-    }
-
-    if (type === "radio") {
-      const options = getRadioOptions();
-      if (!options) return alert("Please enter radio options");
-
-      output += version === "v1"
-        ? `<div class="form_box">
-<div class="form_box_col1">
-    <div class="group">
-        <?php
-            $input->label('${rawName}', '');
-            $input->radio('${fieldName}', array(${options}), '', '', '3');
-        ?>
-    </div>
-</div>
-</div>
-
-`
-        : `<div class="row g-3 mb-3">
-<div class="col-md-12">
-    <?php
-        $input->label('${rawName}', '');
-        $input->radio('${fieldName}', array(${options}), '${fieldName}', '', '3');
-    ?>
-</div>
-</div>
-
-`;
-    }
-
-    if (type === "checkbox") {
-      const options = getRadioOptions();
-      if (!options) return alert("Please enter checkbox options");
-
-      output += version === "v1"
-        ? `<div class="form_box">
-<div class="form_box_col1">
-    <div class="group">
-        <?php
-            $input->label('${rawName}', '');
-            $input->chkboxVal('${fieldName}', array(${options}), '', '', '3');
-        ?>
-    </div>
-</div>
-</div>
-
-`
-        : `<div class="row g-3 mb-3">
-<div class="col-md-12 group" data-limit="7">
-    <?php
-        $input->label('${rawName}', '');
-        $input->chkboxVal('${fieldName}', array(${options}), '${fieldName}', '', '3');
-    ?>
-</div>
-</div>
-
-`;
-    }
-
-    if (type === "select") {
-      const options = getRadioOptions();
-      if (!options) return alert("Please enter select options");
-
-      output += version === "v1"
-        ? `<div class="form_box">
-<div class="form_box_col1">
-    <div class="group">
-        <?php
-            $input->label('${rawName}', '');
-            $input->select('${fieldName}', 'form_field', array(${options}), '${fieldName}');
-        ?>
-    </div>
-</div>
-</div>
-
-`
-        : `<div class="row g-3 mb-3">
-<div class="col-md-12">
-    <?php
-        $input->select('${rawName}', 'form-select', array(${options}), '${rawName}', '', '${rawName}', '', '${rawName}', '');
-    ?>
-</div>
-</div>
-
-`;
-    }
-
-    if (type === "amount") {
-      output += version === "v1"
-        ? `<div class="form_box">
-<div class="form_box_col1">
-  <div class="group">
-     <?php
-        $input->label('${rawName}', '');
-        $input->amount('${fieldName}', '${fieldName}', '');
-     ?>
-  </div>
-</div>
-</div>
-
-`
-        : `<div class="row g-3 mb-3">
-<div class="col-md-3">
-<?php $input->amount('${rawName}', '${fieldName}', ''); ?>
-</div>
-</div>
-
-`;
-    }
-
-    if (type === "age") {
-      output += version === "v1"
-        ? `<div class="form_box">
-<div class="form_box_col1">
-  <div class="group">
-     <?php
-        $input->label('${rawName}', '');
-        $input->fields('${rawName}', 'ageOnly', '${fieldName}', '');
-     ?>
-  </div>
-</div>
-</div>
-
-`
-        : `<div class="row g-3 mb-3">
-<div class="col-md-2">
-<?php $input->fields('${rawName}', 'ageOnly', '${fieldName}', ''); ?>
-</div>
-</div>
-
-`;
-    }
-
-    if (type === "numberOnly") {
-      output += version === "v1"
-        ? `<div class="form_box">
-<div class="form_box_col1">
-  <div class="group">
-     <?php
-        $input->label('${rawName}', '');
-        $input->fields('${rawName}', 'numberOnly', '${fieldName}', '');
-     ?>
-  </div>
-</div>
-</div>
-
-`
-        : `<div class="row g-3 mb-3">
-<div class="col-md-4">
-<?php $input->fields('${rawName}', 'numberOnly', '${fieldName}', ''); ?>
-</div>
-</div>
-
-`;
-    }
-
-    if (type === "upload") {
-      const uploadLabelWithHint = escPhp(rawName + ' <span style="font-style: italic; font-size: 13px; text-transform: lowercase; color:#b1b1b1;">(accepted file formats: .doc, .docx, .pdf | Max: 10MB)</span>');
-      output += version === "v1"
-        ? `<div class="form_box">
-<div class="form_box_col1">
-  <div class="group">
-     <?php
-        $input->label('${rawName}', '');
-     ?>
-     <input type="file" name="attachment[]" id="${fieldName}" class="form_field" multiple>
-  </div>
-</div>
-</div>
-
-`
-        : `<div class="row g-3 mb-3">
-<div class="col-md-12">
-<?php
-  $input->label('${uploadLabelWithHint}', '');
-  $input->files('', '${fieldName}', '', '', 'doc,docx,pdf,zip', '10MB');
-?>
-</div>
-</div>
-
-`;
-    }
-
-    if (type === "header") {
-      output += version === "v1"
-        ? `<p class="fieldheader">${rawName}</p>
-<input type="hidden" name="${fieldName}" value=":" />
-
-`
-        : `<p class="fieldheader text-center text-uppercase fw-bold py-2 mb-3">${rawName}</p>
-<input type="hidden" name="${fieldName}" value=":" />
-
-`;
-    }
-  });
-
-  outputHistory = [];
-  document.getElementById("output").value = output.trim();
+  if (!formFields.length) syncFromNameInput();
+  else generateFromWorkspace();
+  if (!formFields.length) return alert("Please enter at least one field name");
 }
 
-(function initFieldListPreview() {
-  const fieldNamesEl = document.getElementById("fieldNames");
-  if (fieldNamesEl) {
-    fieldNamesEl.addEventListener("input", updateFieldListPreview);
-    fieldNamesEl.addEventListener("change", updateFieldListPreview);
-  }
+(function initWorkspace() {
+  initWorkspaceUi();
 })();
