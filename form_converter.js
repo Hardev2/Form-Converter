@@ -344,7 +344,7 @@ function renderCanvasField(fieldId) {
   const f = fieldById(fieldId);
   if (!f) return "";
   const typeLabel = (FIELD_TYPE_OPTIONS.find((o) => o.value === f.type) || { label: f.type }).label;
-  return `<article class="canvas-field type-${escapeHtml(f.type)}" draggable="true" data-field-id="${f.id}" data-drop="onto">
+  return `<article class="canvas-field canvas-type-${escapeHtml(f.type)}" draggable="true" data-field-id="${f.id}" data-drop="onto">
     <div class="canvas-field-meta">
       <span class="canvas-grab" aria-hidden="true"></span>
       <span class="canvas-type-badge">${escapeHtml(typeLabel)}</span>
