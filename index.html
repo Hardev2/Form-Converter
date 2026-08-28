@@ -29,7 +29,7 @@
         <span class="stat-label">Fields</span>
       </div>
       <div class="stat">
-        <span class="stat-value" id="statLayout">1 col</span>
+        <span class="stat-value" id="statLayout">One column</span>
         <span class="stat-label">Layout</span>
       </div>
       <div class="version-toggle" role="group" aria-label="Output version">
@@ -64,10 +64,10 @@
         <span class="stage-label">Free canvas</span>
         <div class="stage-toolbar-actions">
           <div class="stage-devices" aria-label="Canvas layout">
-            <button type="button" class="device-btn" onclick="resetCanvasColumns()" title="1 column">1 col</button>
-            <button type="button" class="device-btn" onclick="pairCanvasColumns()" title="2 columns">2 col</button>
+            <button type="button" class="device-btn" onclick="resetCanvasColumns()" title="1 column">One column</button>
+            <button type="button" class="device-btn" onclick="pairCanvasColumns()" title="2 columns">Two columns</button>
           </div>
-          <button type="button" class="btn-tool" onclick="undoCanvas()">Undo</button>
+          <button type="button" class="btn-tool undo-btn" onclick="undoCanvas()">Undo</button>
         </div>
       </div>
       <div class="stage-sheet">
@@ -79,7 +79,7 @@
       <header class="dock-head">
         <h2>HTML PHP structure</h2>
         <div class="dock-head-actions">
-          <button type="button" class="btn-tool" onclick="checkPhpStructure()">Check</button>
+          <button type="button" class="btn-tool check-btn" onclick="checkPhpStructure()">Check</button>
           <button type="button" id="copyBtn" class="btn-tool btn-tool-primary" onclick="copyOutput()">
             <span id="copyBtnText">Copy</span>
           </button>
