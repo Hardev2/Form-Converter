@@ -129,8 +129,10 @@ let canvasRows = [];
 let canvasHistory = [];
 let uidSeq = 0;
 let dragFieldId = null;
+let selectedFieldId = null;
 let nameSyncTimer = null;
 let statusTimer = null;
+let highlightClearTimer = null;
 
 function uid(prefix) {
   uidSeq += 1;
@@ -268,6 +270,7 @@ function syncFromNameInput() {
     if (!inCanvas.has(f.id)) canvasRows.push({ id: uid("row"), fieldIds: [f.id] });
   });
   formFields = nextFields;
+  if (selectedFieldId && !keep.has(selectedFieldId)) selectedFieldId = null;
   renderWorkspace();
 }
 
@@ -276,6 +279,7 @@ function renderWorkspace() {
   renderCanvas();
   generateFromWorkspace();
   updateDashStats();
+  if (selectedFieldId) focusFieldInTypeList(selectedFieldId, { scroll: false, flash: false });
 }
 
 function updateDashStats() {
@@ -301,7 +305,8 @@ function renderTypeList() {
     }).join("");
     const showOpts = needsOptions(f.type);
     const optsVal = (f.options || []).join("\n");
-    return `<div class="type-row" data-field-id="${f.id}">
+    const selected = selectedFieldId === f.id ? " is-selected" : "";
+    return `<div class="type-row${selected}" data-field-id="${f.id}">
       <div class="type-row-main">
         <code class="gen-name">${escapeHtml(f.fieldName)}</code>
         <div class="type-radios">${radios}</div>
@@ -312,6 +317,37 @@ function renderTypeList() {
       </div>
     </div>`;
   }).join("");
+}
+
+function focusFieldInTypeList(fieldId, opts) {
+  const options = opts || {};
+  if (!fieldId || !fieldById(fieldId)) {
+    selectedFieldId = null;
+    document.querySelectorAll(".type-row.is-selected, .canvas-field.is-selected").forEach((el) => {
+      el.classList.remove("is-selected", "is-flash");
+    });
+    return;
+  }
+  selectedFieldId = fieldId;
+  document.querySelectorAll(".type-row.is-selected, .canvas-field.is-selected").forEach((el) => {
+    el.classList.remove("is-selected", "is-flash");
+  });
+  const typeRow = document.querySelector(`.type-row[data-field-id="${fieldId}"]`);
+  const canvasField = document.querySelector(`.canvas-field[data-field-id="${fieldId}"]`);
+  if (typeRow) {
+    typeRow.classList.add("is-selected");
+    if (options.scroll !== false) {
+      typeRow.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    if (options.flash !== false) {
+      typeRow.classList.add("is-flash");
+      clearTimeout(highlightClearTimer);
+      highlightClearTimer = setTimeout(() => {
+        typeRow.classList.remove("is-flash");
+      }, 900);
+    }
+  }
+  if (canvasField) canvasField.classList.add("is-selected");
 }
 
 function canvasPreviewMarkup(f) {
@@ -344,7 +380,8 @@ function renderCanvasField(fieldId) {
   const f = fieldById(fieldId);
   if (!f) return "";
   const typeLabel = (FIELD_TYPE_OPTIONS.find((o) => o.value === f.type) || { label: f.type }).label;
-  return `<article class="canvas-field canvas-type-${escapeHtml(f.type)}" draggable="true" data-field-id="${f.id}" data-drop="onto">
+  const selected = selectedFieldId === f.id ? " is-selected" : "";
+  return `<article class="canvas-field canvas-type-${escapeHtml(f.type)}${selected}" draggable="true" data-field-id="${f.id}" data-drop="onto">
     <div class="canvas-field-meta">
       <span class="canvas-grab" aria-hidden="true"></span>
       <span class="canvas-type-badge">${escapeHtml(typeLabel)}</span>
@@ -615,8 +652,13 @@ function onCanvasDrop(e) {
 
 function onCanvasClick(e) {
   const split = e.target.closest(".canvas-split");
-  if (!split) return;
-  splitRow(split.getAttribute("data-row-id"));
+  if (split) {
+    splitRow(split.getAttribute("data-row-id"));
+    return;
+  }
+  const fieldEl = e.target.closest(".canvas-field");
+  if (!fieldEl) return;
+  focusFieldInTypeList(fieldEl.getAttribute("data-field-id"));
 }
 
 function initWorkspaceUi() {
@@ -633,6 +675,11 @@ function initWorkspaceUi() {
   if (types) {
     types.addEventListener("change", onTypeListChange);
     types.addEventListener("input", onTypeListOptionsInput);
+    types.addEventListener("click", (e) => {
+      const row = e.target.closest(".type-row");
+      if (!row) return;
+      focusFieldInTypeList(row.getAttribute("data-field-id"), { scroll: false, flash: false });
+    });
   }
   const canvas = document.getElementById("freeCanvas");
   if (canvas) {
