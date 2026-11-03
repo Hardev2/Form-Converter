@@ -240,6 +240,35 @@ function syncNamesTextarea() {
 
 
 
+/** Lay the canvas out in field-list order. Fields that already share a row stay side by side when they remain next to each other. */
+function applyNameOrderToCanvas(nextFields) {
+  const groupOf = new Map();
+  canvasRows.forEach((row) => {
+    row.fieldIds.forEach((id) => groupOf.set(id, row.id));
+  });
+  const typeOf = new Map(nextFields.map((f) => [f.id, f.type]));
+  const ids = nextFields.map((f) => f.id);
+  const nextRows = [];
+  let i = 0;
+  while (i < ids.length) {
+    const groupId = groupOf.get(ids[i]);
+    let j = i + 1;
+    if (groupId && typeOf.get(ids[i]) !== "header") {
+      while (
+        j < ids.length &&
+        groupOf.get(ids[j]) === groupId &&
+        typeOf.get(ids[j]) !== "header" &&
+        (j - i) < MAX_ROW_COLS
+      ) {
+        j += 1;
+      }
+    }
+    nextRows.push({ id: uid("row"), fieldIds: ids.slice(i, j) });
+    i = j;
+  }
+  canvasRows = nextRows;
+}
+
 function syncFromNameInput() {
   const namesEl = document.getElementById("fieldNames");
   if (!namesEl) return;
@@ -261,15 +290,9 @@ function syncFromNameInput() {
       required: false
     };
   });
-  const keep = new Set(nextFields.map((f) => f.id));
-  canvasRows = canvasRows
-    .map((row) => ({ id: row.id, fieldIds: row.fieldIds.filter((id) => keep.has(id)) }))
-    .filter((row) => row.fieldIds.length);
-  const inCanvas = new Set(canvasRows.flatMap((r) => r.fieldIds));
-  nextFields.forEach((f) => {
-    if (!inCanvas.has(f.id)) canvasRows.push({ id: uid("row"), fieldIds: [f.id] });
-  });
+  applyNameOrderToCanvas(nextFields);
   formFields = nextFields;
+  const keep = new Set(nextFields.map((f) => f.id));
   if (selectedFieldId && !keep.has(selectedFieldId)) selectedFieldId = null;
   renderWorkspace();
 }
@@ -359,12 +382,19 @@ function canvasPreviewMarkup(f) {
     return `<label class="canvas-label">${label}</label><div class="canvas-bar canvas-bar-tall"></div>`;
   }
   if (f.type === "radio" || f.type === "checkbox") {
-    const opts = (f.options && f.options.length ? f.options : ["Option 1", "Option 2", "Option 3"]).slice(0, 6);
+    const allOpts = (f.options && f.options.length) ? f.options : ["Option 1", "Option 2", "Option 3"];
+    const opts = allOpts.slice(0, 6).concat(allOpts.slice(6).filter((o) => isOtherOption(o)));
     const markClass = f.type === "radio" ? "radio" : "checkbox";
     const items = opts.map((o) => `<span class="canvas-choice"><i class="choice-mark ${markClass}" aria-hidden="true"></i>${escapeHtml(o)}</span>`).join("");
+    const otherCount = (f.options || []).filter((o) => isOtherOption(o)).length;
+    let otherHtml = "";
+    for (let i = 0; i < otherCount; i++) {
+      otherHtml += `<div class="canvas-other-field"><span class="canvas-label">Other</span><div class="canvas-bar"></div></div>`;
+    }
     return `<div class="canvas-choice-stack">
       <label class="canvas-label">${label}</label>
       <div class="canvas-choices">${items}</div>
+      ${otherHtml}
     </div>`;
   }
   if (f.type === "select") {
@@ -522,10 +552,12 @@ function generateFromWorkspace() {
   if (!outputEl) return;
   if (!formFields.length) {
     outputEl.value = "";
+    renderConditionalScript({ checkboxes: [], radios: [], byFieldId: {} });
     updatePhpStatus();
     return;
   }
   const version = workspaceVersion;
+  const conditional = collectConditionalOthers();
   let output = "";
   canvasRows.forEach((row) => {
     const fields = row.fieldIds.map(fieldById).filter(Boolean);
@@ -533,15 +565,21 @@ function generateFromWorkspace() {
     if (fields.length === 1) {
       const f = fields[0];
       output += renderOneField(f.rawName, f.fieldName, f.type, f.options, version, f.required);
-      return;
+    } else {
+      const inners = fields.map((f) => {
+        const html = renderOneField(f.rawName, f.fieldName, f.type, f.options, version, f.required);
+        return { inner: getColumnInner(html, version) };
+      });
+      output += buildMergedHtml(inners, fields.length, version === "v1") + "\n";
     }
-    const inners = fields.map((f) => {
-      const html = renderOneField(f.rawName, f.fieldName, f.type, f.options, version, f.required);
-      return { inner: getColumnInner(html, version) };
+    fields.forEach((f) => {
+      (conditional.byFieldId[f.id] || []).forEach((entry) => {
+        output += renderConditionalOtherMarkup(version, entry);
+      });
     });
-    output += buildMergedHtml(inners, fields.length, version === "v1") + "\n";
   });
   outputEl.value = output.trim();
+  renderConditionalScript(conditional);
   updatePhpStatus();
 }
 
@@ -741,6 +779,29 @@ function fallbackCopy(text) {
     alert("Could not copy. Please select and copy manually.");
   }
   document.body.removeChild(ta);
+}
+
+function copyConditionalScript() {
+  const output = document.getElementById("jsOutput");
+  const copyBtn = document.getElementById("copyJsBtn");
+  const copyBtnText = document.getElementById("copyJsBtnText");
+  const text = output ? output.value : "";
+  if (!text.trim()) return alert("Nothing to copy. Add an Other option to a checkbox or radio first.");
+  const showCopied = () => {
+    if (copyBtnText) copyBtnText.textContent = "Copied!";
+    else if (copyBtn) copyBtn.textContent = "Copied!";
+    if (copyBtn) copyBtn.classList.add("copied");
+    setTimeout(() => {
+      if (copyBtnText) copyBtnText.textContent = "Copy";
+      else if (copyBtn) copyBtn.textContent = "Copy";
+      if (copyBtn) copyBtn.classList.remove("copied");
+    }, 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(showCopied).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
 }
 
 function clearOutput() {
@@ -1594,6 +1655,7 @@ function renderOneField(rawName, fieldName, type, optionsArray, version, require
 `;
   } else if (type === "checkbox") {
     const optionsStr = opts || formatOptionsForPhp(["Option 1", "Option 2", "Option 3"]);
+    const optionCount = (optionsArray && optionsArray.length) ? optionsArray.length : 3;
     out = version === "v1"
       ? `<div class="form_box">
 <div class="form_box_col1">
@@ -1608,7 +1670,7 @@ function renderOneField(rawName, fieldName, type, optionsArray, version, require
 
 `
       : `<div class="row g-3 mb-3">
-<div class="col-md-12 group" data-limit="7">
+<div class="col-md-12 group" data-limit="${optionCount}">
     <?php
         $input->label('${r}', '');
         $input->chkboxVal('${f}', array(${optionsStr}), '${f}', '${reqAttr}', '3');

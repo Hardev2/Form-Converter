@@ -97,10 +97,23 @@
         <ul class="php-status-list" id="phpStatusList" hidden></ul>
       </div>
       <textarea id="output" rows="18" placeholder="Enter field names to generate PHP markup here." spellcheck="false"></textarea>
+      <section class="js-panel" aria-label="Other field script">
+        <header class="js-panel-head">
+          <div>
+            <h2>Other field script</h2>
+            <p class="dock-hint" id="jsStatusMeta">Appears when a checkbox or radio includes Other</p>
+          </div>
+          <button type="button" id="copyJsBtn" class="btn-tool btn-tool-primary" onclick="copyConditionalScript()">
+            <span id="copyJsBtnText">Copy</span>
+          </button>
+        </header>
+        <textarea id="jsOutput" rows="10" placeholder="A show/hide script is generated here for every checkbox or radio that has an Other option." spellcheck="false"></textarea>
+      </section>
     </aside>
   </div>
 </div>
 
+<script src="conditional_fields.js"></script>
 <script src="form_converter.js"></script>
 </body>
 </html>
